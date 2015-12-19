@@ -329,6 +329,10 @@ struct tapan_priv {
 					enum wcd9xxx_codec_event);
 };
 
+/* OPPO 2013-11-12 xuzhaoan Add begin for American Headset Detect */
+    struct tapan_priv *priv_headset_type;
+/* OPPO 2013-11-12 xuzhaoan Add end */
+
 static const u32 comp_shift[] = {
 	0,
 	1,
@@ -395,6 +399,38 @@ static unsigned short tx_digital_gain_reg[] = {
 	TAPAN_A_CDC_TX3_VOL_CTL_GAIN,
 	TAPAN_A_CDC_TX4_VOL_CTL_GAIN,
 };
+
+//liuyan 2013-3-13 add for headset detect
+enum
+{
+	NO_DEVICE	= 0,
+	HS_WITH_MIC	= 1,
+	HS_WITHOUT_MIC = 2,
+};
+static ssize_t wcd9xxx_print_name(struct switch_dev *sdev, char *buf)
+{
+	switch (switch_get_state(sdev))
+	{
+		case NO_DEVICE:
+			return sprintf(buf, "No Device\n");
+		case HS_WITH_MIC:
+			#if 0
+            if(priv_headset_type->mbhc.mbhc_cfg->headset_type == 1) {
+		        return sprintf(buf, "American Headset\n");
+            } else {
+                return sprintf(buf, "Headset\n");
+            }
+			#else
+			    return sprintf(buf, "Headset\n");
+			#endif
+
+		case HS_WITHOUT_MIC:
+			return sprintf(buf, "Handset\n");
+
+	}
+	return -EINVAL;
+}
+//liuyan add end
 
 static int spkr_drv_wrnd_param_set(const char *val,
 				   const struct kernel_param *kp)
@@ -510,6 +546,59 @@ static int tapan_put_anc_func(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
+/*xiaojun.lv@PhoneDpt.AudioDrv, 2014/03/16, add for 14033 spk control*/
+static int spkr_get_control(struct snd_kcontrol *kcontrol,
+				   struct snd_ctl_elem_value *ucontrol)
+{
+    return 0;
+}
+
+static int spkr_put_control(struct snd_kcontrol *kcontrol,
+                struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
+	struct tapan_priv *tapan = snd_soc_codec_get_drvdata(codec);
+	unsigned int value;
+	value = ucontrol->value.integer.value[0];
+	printk("%s:val %d\n",__func__,value);
+	if(is_project(OPPO_14033) || is_project(OPPO_14013))
+	{
+        if(value) //on
+        {
+            if(tapan->mbhc.mbhc_cfg->cdc_bootst_spk_gpio)
+            {
+                gpio_set_value(tapan->mbhc.mbhc_cfg->cdc_bootst_spk_gpio, 1);
+        	    pr_debug("%s:gpio:%d %d\n",__func__,tapan->mbhc.mbhc_cfg->cdc_bootst_spk_gpio,
+        		        gpio_get_value(tapan->mbhc.mbhc_cfg->cdc_bootst_spk_gpio));
+                msleep(10);
+            }
+            if(tapan->mbhc.mbhc_cfg->cdc_enable_spk_gpio)
+            {
+                gpio_set_value(tapan->mbhc.mbhc_cfg->cdc_enable_spk_gpio, 1);
+        	    pr_debug("%s:gpio:%d %d\n",__func__,tapan->mbhc.mbhc_cfg->cdc_enable_spk_gpio,
+        		        gpio_get_value(tapan->mbhc.mbhc_cfg->cdc_enable_spk_gpio));
+            }
+        }
+        else //off
+        {
+            if(tapan->mbhc.mbhc_cfg->cdc_enable_spk_gpio)
+            {
+                gpio_set_value(tapan->mbhc.mbhc_cfg->cdc_enable_spk_gpio, 0);
+        	    pr_debug("%s:gpio:%d %d\n",__func__,tapan->mbhc.mbhc_cfg->cdc_enable_spk_gpio,
+        		        gpio_get_value(tapan->mbhc.mbhc_cfg->cdc_enable_spk_gpio));
+            }
+            if(tapan->mbhc.mbhc_cfg->cdc_bootst_spk_gpio)
+            {
+                gpio_set_value(tapan->mbhc.mbhc_cfg->cdc_bootst_spk_gpio, 0);
+        	    pr_debug("%s:gpio:%d %d\n",__func__,tapan->mbhc.mbhc_cfg->cdc_bootst_spk_gpio,
+        		        gpio_get_value(tapan->mbhc.mbhc_cfg->cdc_bootst_spk_gpio));
+                msleep(10);
+            }
+        }
+	}
+	return 0;
+}
+
 static int tapan_pa_gain_get(struct snd_kcontrol *kcontrol,
 				struct snd_ctl_elem_value *ucontrol)
 {
@@ -549,6 +638,15 @@ static int tapan_pa_gain_put(struct snd_kcontrol *kcontrol,
 		ear_pa_gain = 0x00;
 		break;
 	case 1:
+		ear_pa_gain = 0x20;
+		break;
+	case 2:
+		ear_pa_gain = 0x40;
+		break;
+	case 3:
+		ear_pa_gain = 0x60;
+		break;
+	case 4:
 		ear_pa_gain = 0x80;
 		break;
 	default:
@@ -1017,9 +1115,10 @@ static int tapan_config_compander(struct snd_soc_dapm_widget *w,
 	return 0;
 }
 
-static const char * const tapan_ear_pa_gain_text[] = {"POS_6_DB", "POS_2_DB"};
+//xiang.fei@AudioDrv, 2014/0/2, Modify for EAR PA Gain
+static const char * const tapan_ear_pa_gain_text[] = {"POS_6_DB", "POS_4P5_DB", "POS_3_DB", "POS_1P5_DB", "POS_0_DB"};
 static const struct soc_enum tapan_ear_pa_gain_enum[] = {
-		SOC_ENUM_SINGLE_EXT(2, tapan_ear_pa_gain_text),
+		SOC_ENUM_SINGLE_EXT(5, tapan_ear_pa_gain_text),
 };
 
 static const char *const tapan_anc_func_text[] = {"OFF", "ON"};
@@ -1086,6 +1185,9 @@ static int tapan_hph_impedance_get(struct snd_kcontrol *kcontrol,
 
 static const struct snd_kcontrol_new tapan_common_snd_controls[] = {
 
+/*xiaojun.lv@PhoneDpt.AudioDrv, 2014/03/16, add for 14033 spk control*/	
+    SOC_SINGLE_EXT("SPKR Enable", 0, 0, 1, 0,
+                        spkr_get_control, spkr_put_control),
 	SOC_ENUM_EXT("EAR PA Gain", tapan_ear_pa_gain_enum[0],
 		tapan_pa_gain_get, tapan_pa_gain_put),
 
@@ -5844,6 +5946,17 @@ static int tapan_codec_probe(struct snd_soc_codec *codec)
 		return ret;
 	}
 
+//liuyan 2013-3-13 add, headset detec
+
+	tapan->mbhc.wcd9xxx_sdev.name= "h2w";
+	tapan->mbhc.wcd9xxx_sdev.print_name = wcd9xxx_print_name;
+	ret = switch_dev_register(&tapan->mbhc.wcd9xxx_sdev);
+	if (ret)
+	{
+		goto err_switch_dev_register;
+	}
+//liuyan add end
+
 	tapan->codec = codec;
 	for (i = 0; i < COMPANDER_MAX; i++) {
 		tapan->comp_enabled[i] = 0;
@@ -5934,11 +6047,18 @@ static int tapan_codec_probe(struct snd_soc_codec *codec)
 	if (ret)
 		tapan_cleanup_irqs(tapan);
 
+/* OPPO 2013-11-12 xuzhaoan Add begin for America Headset Detect */
+    priv_headset_type = tapan;
+/* OPPO 2013-11-12 xuzhaoan Add end */
+
 	return ret;
 
 err_pdata:
 	kfree(ptr);
 err_nomem_slimch:
+//luiyan 2013-3-13 add for headset detect
+	switch_dev_unregister(&tapan->mbhc.wcd9xxx_sdev);
+	err_switch_dev_register:
 	kfree(tapan);
 	return ret;
 }

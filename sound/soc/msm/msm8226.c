@@ -27,7 +27,7 @@
 #include <asm/mach-types.h>
 #include <mach/socinfo.h>
 #include <mach/subsystem_notif.h>
-#include <qdsp6v2/msm-pcm-routing-v2.h>
+#include "qdsp6v2/msm-pcm-routing-v2.h"
 #include "qdsp6v2/q6core.h"
 #include "../codecs/wcd9xxx-common.h"
 #include "../codecs/wcd9306.h"
@@ -55,6 +55,11 @@
 #define LO_2_SPK_AMP   0x2
 
 #define ADSP_STATE_READY_TIMEOUT_MS 3000
+
+#define GPIO_TERT_MI2S_SCK    49
+#define GPIO_TERT_MI2S_WS     50
+#define GPIO_TERT_MI2S_DATA0  52
+#define GPIO_TERT_MI2S_DATA1  51
 
 static void *adsp_state_notifier;
 
@@ -87,8 +92,8 @@ static struct wcd9xxx_mbhc_config mbhc_cfg = {
 	.gpio = 0,
 	.gpio_irq = 0,
 	.gpio_level_insert = 0,
-	.detect_extn_cable = true,
-	.micbias_enable_flags = 1 << MBHC_MICBIAS_ENABLE_THRESHOLD_HEADSET,
+	.detect_extn_cable = false,//OPPO 2013-03-27 zhzhyon Modify for headset detect
+	.micbias_enable_flags = 1 << MBHC_MICBIAS_ENABLE_THRESHOLD_HEADSET | 1 << MBHC_MICBIAS_ENABLE_REGULAR_HEADSET,
 	.insert_detect = true,
 	.swap_gnd_mic = NULL,
 	.cs_enable_flags = (1 << MBHC_CS_ENABLE_POLLING |
@@ -113,7 +118,48 @@ struct msm8226_asoc_mach_data {
 	u32 mclk_freq;
 	struct msm_auxpcm_ctrl *auxpcm_ctrl;
 	u32 us_euro_gpio;
+/*xiaojun.lv@PhoneDpt.AudioDrv, 2014/03/16, add for 14033 spk control*/
+    int cdc_boost_spk_gpio;
+    int cdc_enable_spk_gpio;
 };
+
+struct request_gpio {
+        unsigned gpio_no;
+        char *gpio_name;
+};
+
+static struct request_gpio tert_mi2s_gpio[] = {
+    /*    {
+                .gpio_no = GPIO_TERT_MI2S_MCLK,
+                .gpio_name = "TERT_MI2S_MCLK",
+        },*/
+        {
+                .gpio_no = GPIO_TERT_MI2S_SCK,
+                .gpio_name = "TERT_MI2S_SCK",
+        },
+        {
+                .gpio_no = GPIO_TERT_MI2S_WS,
+                .gpio_name = "TERT_MI2S_WS",
+        },
+       {
+                .gpio_no = GPIO_TERT_MI2S_DATA0,
+                .gpio_name = "TERT_MI2S_DATA0",
+        },
+        {
+                .gpio_no = GPIO_TERT_MI2S_DATA1,
+                .gpio_name = "TERT_MI2S_DATA1",
+        },
+};
+
+/* MI2S clock */
+struct mi2s_clk {
+        struct clk *core_clk;
+        struct clk *osr_clk;
+        struct clk *bit_clk;
+        atomic_t mi2s_rsc_ref;
+};
+
+static struct mi2s_clk tert_mi2s_clk;
 
 #define GPIO_NAME_INDEX 0
 #define DT_PARSE_INDEX  1
@@ -196,6 +242,115 @@ exit:
 	mutex_unlock(&cdc_mclk_mutex);
 	return ret;
 }
+
+static int msm8226_tert_mi2s_free_gpios(void)
+{
+        int     i;
+        for (i = 0; i < ARRAY_SIZE(tert_mi2s_gpio); i++)
+                gpio_free(tert_mi2s_gpio[i].gpio_no);
+        return 0;
+}
+
+static struct afe_clk_cfg lpass_mi2s_enable = {
+        AFE_API_VERSION_I2S_CONFIG,
+        Q6AFE_LPASS_IBIT_CLK_1_P536_MHZ,
+        Q6AFE_LPASS_OSR_CLK_12_P288_MHZ,
+        Q6AFE_LPASS_CLK_SRC_INTERNAL,
+        Q6AFE_LPASS_CLK_ROOT_DEFAULT,
+        Q6AFE_LPASS_MODE_BOTH_VALID,
+        0,
+};
+
+static struct afe_clk_cfg lpass_mi2s_disable = {
+        AFE_API_VERSION_I2S_CONFIG,
+        0,
+        0,
+        Q6AFE_LPASS_CLK_SRC_INTERNAL,
+        Q6AFE_LPASS_CLK_ROOT_DEFAULT,
+        Q6AFE_LPASS_MODE_BOTH_VALID,
+        0,
+};
+
+static void msm8226_mi2s_shutdown(struct snd_pcm_substream *substream)
+{
+        int ret =0;
+        if (atomic_dec_return(&tert_mi2s_clk.mi2s_rsc_ref) == 0) {
+                pr_info("%s: free mi2s resources\n", __func__);
+
+                ret = afe_set_lpass_clock(AFE_PORT_ID_TERTIARY_MI2S_RX, &lpass_mi2s_disable);
+                if (ret < 0) {
+                        pr_err("%s: afe_set_lpass_clock failed\n", __func__);
+                        }
+
+                msm8226_tert_mi2s_free_gpios();
+        }
+}
+
+static int msm8226_configure_tert_mi2s_gpio(void)
+{
+        int     ret;
+        int     i;
+        for (i = 0; i < ARRAY_SIZE(tert_mi2s_gpio); i++) {
+                ret = gpio_request(tert_mi2s_gpio[i].gpio_no,
+                                tert_mi2s_gpio[i].gpio_name);
+                pr_info("%s: gpio = %d, gpio name = %s, rtn = %d\n", __func__,
+                        tert_mi2s_gpio[i].gpio_no, tert_mi2s_gpio[i].gpio_name, ret);
+
+
+                if (ret) {
+                        pr_err("%s: Failed to request gpio %d\n",
+                                   __func__,
+                                   tert_mi2s_gpio[i].gpio_no);
+
+                        while( i >= 0) {
+                                gpio_free(tert_mi2s_gpio[i].gpio_no);
+                                i--;
+                        }
+
+                        break;
+                }
+        }
+
+        return ret;
+}
+
+static int msm8226_mi2s_startup(struct snd_pcm_substream *substream)
+{
+        int ret = 0;
+        struct snd_soc_pcm_runtime *rtd = substream->private_data;
+        struct snd_soc_dai *cpu_dai = rtd->cpu_dai;
+        struct snd_soc_dai *codec_dai = rtd->codec_dai;
+        pr_info("%s: dai name %s %p\n", __func__, cpu_dai->name, cpu_dai->dev);
+
+        if (atomic_inc_return(&tert_mi2s_clk.mi2s_rsc_ref) == 1) {
+                pr_info("%s: acquire mi2s resources\n", __func__);
+                msm8226_configure_tert_mi2s_gpio();
+
+                ret = afe_set_lpass_clock(AFE_PORT_ID_TERTIARY_MI2S_RX, &lpass_mi2s_enable);
+                if (ret < 0) {
+                        pr_err("%s: afe_set_lpass_clock failed\n", __func__);
+                        return ret;
+                }
+
+                ret = snd_soc_dai_set_fmt(cpu_dai, SND_SOC_DAIFMT_CBS_CFS);
+                if (ret < 0)
+                        dev_err(cpu_dai->dev, "set format for CPU dai"
+                                " failed\n");
+
+                ret = snd_soc_dai_set_fmt(codec_dai, SND_SOC_DAIFMT_CBS_CFS);
+                if (ret < 0)
+                        dev_err(codec_dai->dev, "set format for codec dai"
+                                 " failed\n");
+
+                ret  = 0;
+        }
+        return ret;
+}
+
+static struct snd_soc_ops msm8226_mi2s_be_ops = {
+        .startup = msm8226_mi2s_startup,
+        .shutdown = msm8226_mi2s_shutdown
+};
 
 static int msm8226_mclk_event(struct snd_soc_dapm_widget *w,
 		struct snd_kcontrol *kcontrol, int event)
@@ -690,6 +845,25 @@ static int msm_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
 	return 0;
 }
 
+//xiang.fei@AudioDrv, 2014/01/06, Add for Mono
+static int msm8226_mi2s_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
+            struct snd_pcm_hw_params *params)
+{
+    struct snd_interval *rate = hw_param_interval(params,
+    SNDRV_PCM_HW_PARAM_RATE);
+
+    struct snd_interval *channels = hw_param_interval(params,
+    SNDRV_PCM_HW_PARAM_CHANNELS);
+
+    pr_debug("%s rate->min %d rate->max %d channels->min %u channels->max %u ()\n", __func__,
+            rate->min, rate->max, channels->min, channels->max);
+
+    rate->min = rate->max = 48000;
+    channels->min = channels->max = 1;
+
+    return 0;
+}
+
 static int msm_be_fm_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
 				struct snd_pcm_hw_params *params)
 {
@@ -833,6 +1007,8 @@ static int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 	struct snd_soc_dapm_context *dapm = &codec->dapm;
 	struct snd_soc_dai *cpu_dai = rtd->cpu_dai;
 	struct snd_soc_dai *codec_dai = rtd->codec_dai;
+/*xiaojun.lv@PhoneDpt.AudioDrv, 2014/03/16, add for 14033 spk control*/	
+    struct msm8226_asoc_mach_data *mach_data;
 
 	/*
 	 * Tapan SLIMBUS configuration
@@ -872,6 +1048,39 @@ static int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 			__func__, err);
 		return err;
 	}
+/*xiaojun.lv@PhoneDpt.AudioDrv, 2014/03/16, add for 14033 spk control*/
+        mach_data = (struct msm8226_asoc_mach_data*)(rtd->card->drvdata);
+        if(mach_data)
+        {
+            mbhc_cfg.cdc_bootst_spk_gpio = mach_data->cdc_boost_spk_gpio;
+            if (mbhc_cfg.cdc_bootst_spk_gpio) 
+            {
+        		err = gpio_request(mbhc_cfg.cdc_bootst_spk_gpio, "CDC_BOOST_SPK");
+                if (err) {
+                    pr_err("%s: Failed to request gpio %d\n", __func__,
+                    mbhc_cfg.cdc_bootst_spk_gpio);
+                    mbhc_cfg.cdc_bootst_spk_gpio = 0;
+        		}
+                gpio_direction_output(mbhc_cfg.cdc_bootst_spk_gpio, 0);
+            }
+            mbhc_cfg.cdc_enable_spk_gpio = mach_data->cdc_enable_spk_gpio;
+            if (mbhc_cfg.cdc_enable_spk_gpio) 
+            {
+        		err = gpio_request(mbhc_cfg.cdc_enable_spk_gpio, "CDC_ENABLE_SPK");
+                if (err) {
+                    pr_err("%s: Failed to request gpio %d\n", __func__,
+                    mbhc_cfg.cdc_enable_spk_gpio);
+                    mbhc_cfg.cdc_enable_spk_gpio = 0;
+        		}
+                gpio_direction_output(mbhc_cfg.cdc_enable_spk_gpio, 0);
+            }
+        }
+        else
+        {
+            pr_err("%s: Failed to get msm8226_asoc_mach_data\n",
+    			__func__);
+        }
+
 
 	/* start mbhc */
 	mbhc_cfg.calibration = def_tapan_mbhc_cal();
@@ -1527,6 +1736,32 @@ static struct snd_soc_dai_link msm8226_common_dai[] = {
 		.be_hw_params_fixup = msm_be_hw_params_fixup,
 		.ignore_suspend = 1,
 	},
+	/* MI2S BACK END DAI LINK*/
+    //xiang.fei@AudioDrv, 2014/01/06, Modify for Mono
+        {
+                .name = LPASS_BE_TERT_MI2S_RX,
+                .stream_name = "Tertiary MI2S Playback",
+                .cpu_dai_name = "msm-dai-q6-mi2s.2",
+                .platform_name = "msm-pcm-routing",
+                .codec_name     = "msm-stub-codec.1",
+                .codec_dai_name = "msm-stub-rx",
+                .no_pcm = 1,
+                .be_id = MSM_BACKEND_DAI_TERTIARY_MI2S_RX,
+                .be_hw_params_fixup = msm8226_mi2s_be_hw_params_fixup,
+                .ops = &msm8226_mi2s_be_ops,
+        },
+        {
+                .name = LPASS_BE_TERT_MI2S_TX,
+                .stream_name = "Tertiary MI2S Capture",
+                .cpu_dai_name = "msm-dai-q6-mi2s.2",
+                .platform_name = "msm-pcm-routing",
+                .codec_name     = "msm-stub-codec.1",
+                .codec_dai_name = "msm-stub-tx",
+                .no_pcm = 1,
+                .be_id = MSM_BACKEND_DAI_TERTIARY_MI2S_TX,
+                .be_hw_params_fixup = msm_be_hw_params_fixup,
+                .ops = &msm8226_mi2s_be_ops,
+        },
 };
 
 static struct snd_soc_dai_link msm8226_9306_dai[] = {
@@ -1656,6 +1891,22 @@ static struct snd_soc_dai_link msm8226_9306_dai[] = {
 		.ops = &msm8226_be_ops,
 		.ignore_suspend = 1,
 	},
+	/* Voice Stub For Loopback */
+	/* qcom add for refmic to speaker loopback,2014/1/28,next struct */
+	{
+	    .name = "Voice Stub",
+	    .stream_name = "Voice Stub",
+	    .cpu_dai_name = "VOICE_STUB",
+	    .platform_name = "msm-pcm-hostless",
+	    .dynamic = 1,
+	    .trigger = {SND_SOC_DPCM_TRIGGER_POST,
+	        SND_SOC_DPCM_TRIGGER_POST},
+	    .no_host_mode = SND_SOC_DAI_LINK_NO_HOST,
+	    .ignore_suspend = 1,
+	    .ignore_pmdown_time = 1,
+	    .codec_dai_name = "snd-soc-dummy-dai",
+	    .codec_name = "snd-soc-dummy",
+    },
 };
 
 static struct snd_soc_dai_link msm8226_9302_dai[] = {
@@ -1951,6 +2202,8 @@ static struct snd_soc_card *populate_snd_card_dailinks(struct device *dev)
 
 	return card;
 }
+	//Yixue.Ge@ProDrv.PW add for i2s ref error
+static int is_probe = 0;
 
 static __devinit int msm8226_asoc_machine_probe(struct platform_device *pdev)
 {
@@ -2014,9 +2267,39 @@ static __devinit int msm8226_asoc_machine_probe(struct platform_device *pdev)
 		goto err;
 	}
 
+/*xiaojun.lv@PhoneDpt.AudioDrv, 2014/03/16, add for 14033 spk control*/
+    if(is_project(OPPO_14033) || is_project(OPPO_14013))
+    {
+        pdata->cdc_enable_spk_gpio = of_get_named_gpio(pdev->dev.of_node,
+    				"qcom,cdc-enable-spk-gpios", 0);
+    	if (pdata->cdc_enable_spk_gpio < 0) {
+    		dev_err(&pdev->dev,
+    			"Looking up %s property in node %s failed %d\n",
+    			"qcom,cdc-enable-spk-gpios", pdev->dev.of_node->full_name,
+    			pdata->cdc_enable_spk_gpio);
+    		ret = -ENODEV;
+    		goto err;
+    	}
+    	printk("%s pdata->cdc_enable_spk_gpio:%d\n", __func__, pdata->cdc_enable_spk_gpio);
+        pdata->cdc_boost_spk_gpio = of_get_named_gpio(pdev->dev.of_node,
+    				"qcom,cdc-boost-spk-gpios", 0);
+    	if (pdata->cdc_boost_spk_gpio < 0) {
+    		dev_err(&pdev->dev,
+    			"Looking up %s property in node %s failed %d\n",
+    			"qcom,cdc-boost-spk-gpios", pdev->dev.of_node->full_name,
+    			pdata->cdc_boost_spk_gpio);
+    		ret = -ENODEV;
+    		goto err;
+    	}
+    	printk("%s pdata->cdc_boost_spk_gpio:%d\n", __func__, pdata->cdc_boost_spk_gpio);
+	}
+
 	ret = msm8226_prepare_codec_mclk(card);
 	if (ret)
 		goto err1;
+
+	//Yixue.Ge@ProDrv.PW del for i2s ref error
+	atomic_set(&tert_mi2s_clk.mi2s_rsc_ref, 0);
 
 	mutex_init(&cdc_mclk_mutex);
 
@@ -2031,6 +2314,10 @@ static __devinit int msm8226_asoc_machine_probe(struct platform_device *pdev)
 			ret);
 		goto err;
 	}
+	
+	//Yixue.Ge@ProDrv.PW add for i2s ref error
+	if(!is_probe)
+		atomic_set(&tert_mi2s_clk.mi2s_rsc_ref, 0);
 
 	/* Parse AUXPCM info from DT */
 	ret = msm8226_dtparse_auxpcm(pdev, &pdata->auxpcm_ctrl,
@@ -2040,7 +2327,8 @@ static __devinit int msm8226_asoc_machine_probe(struct platform_device *pdev)
 		"%s: Auxpcm pin data parse failed\n", __func__);
 		goto err;
 	}
-
+#ifndef VENDOR_EDIT
+/*xiaojun.lv@PhoneDpt.AudioDrv, 2014/03/16, del for 14033 spk control*/
 	vdd_spkr_gpio = of_get_named_gpio(pdev->dev.of_node,
 				"qcom,cdc-vdd-spkr-gpios", 0);
 	if (vdd_spkr_gpio < 0) {
@@ -2077,7 +2365,7 @@ static __devinit int msm8226_asoc_machine_probe(struct platform_device *pdev)
 			goto err_vdd_spkr;
 		}
 	}
-
+#endif
 	msm8226_setup_hs_jack(pdev, pdata);
 
 	ret = of_property_read_string(pdev->dev.of_node,
@@ -2112,12 +2400,14 @@ err_lineout_spkr:
 		ext_spk_amp_gpio = -1;
 	}
 
+#ifndef VENDOR_EDIT
+/*xiaojun.lv@PhoneDpt.AudioDrv, 2014/03/16, del for 14033 spk control*/
 err_vdd_spkr:
 	if (vdd_spkr_gpio >= 0) {
 		gpio_free(vdd_spkr_gpio);
 		vdd_spkr_gpio = -1;
 	}
-
+#endif
 err:
 	if (pdata->mclk_gpio > 0) {
 		dev_dbg(&pdev->dev, "%s free gpio %d\n",
