@@ -11,109 +11,38 @@
  */
 
 /include/ "msm8226-camera-sensor-qrd.dtsi"
-
+/*qiang.zhang@Bas Drv add for remote control, uart5 config*/
+/ {
+    aliases {
+        serial0 = &uart3_debug;
+        serial1 = &uart5_remote;
+    };
+};
 &soc {
-	serial@f991f000 {
+	/*qiang.zhang@Bas Drv add for remote control, uart5 config*/
+	uart3_debug: serial@f991f000 {
 		status = "ok";
 	};
 
-        i2c@f9925000 { /* BLSP1 QUP3 */
-                nfc-nci@0e {
-                        compatible = "qcom,nfc-nci";
-                        reg = <0x0e>;
-                        qcom,irq-gpio = <&msmgpio 21 0x00>;
-                        qcom,dis-gpio = <&msmgpio 20 0x00>;
-                        qcom,clk-src = "BBCLK2";
-                        qcom,clk-en-gpio = <&msmgpio 0 0x00>;
-                        interrupt-parent = <&msmgpio>;
-                        interrupts = <21 0>;
-                        qcom,clk-gpio = <&pm8226_gpios 3 0>;
-                };
-        };
-
-	i2c@f9927000 { /* BLSP1 QUP5 */
-		synaptics@20 {
-			compatible = "synaptics,rmi4";
-			reg = <0x20>;
-			interrupt-parent = <&msmgpio>;
-			interrupts = <17 0x2008>;
-			vdd-supply = <&pm8226_l19>;
-			vcc_i2c-supply = <&pm8226_lvs1>;
-			synaptics,reset-gpio = <&msmgpio 16 0x00>;
-			synaptics,irq-gpio = <&msmgpio 17 0x2008>;
-			synaptics,button-map = <139 102 158>;
-			synaptics,fw-image-name = "PR1468813.img";
-			synaptics,i2c-pull-up;
-			synaptics,power-down;
-			synaptics,disable-gpios;
-		};
-
-		focaltech@38 {
-			compatible = "focaltech,5x06";
-			reg = <0x38>;
-			interrupt-parent = <&msmgpio>;
-			interrupts = <17 0x2>;
-			vdd-supply = <&pm8226_l19>;
-			vcc_i2c-supply = <&pm8226_lvs1>;
-			focaltech,name = "ft5x06";
-			focaltech,family-id = <0x55>;
-			focaltech,reset-gpio = <&msmgpio 16 0x00>;
-			focaltech,irq-gpio = <&msmgpio 17 0x00>;
-			focaltech,display-coords = <0 0 1080 1920>;
-			focaltech,panel-coords = <0 0 1080 2000>;
-			focaltech,button-map= <139 102 158>;
-			focaltech,no-force-update;
-			focaltech,i2c-pull-up;
-			focaltech,group-id = <1>;
-			focaltech,hard-reset-delay-ms = <20>;
-			focaltech,soft-reset-delay-ms = <150>;
-			focaltech,num-max-touches = <5>;
-			focaltech,fw-name = "ft_8226_qrd_1080p_fw.bin";
-			focaltech,fw-delay-aa-ms = <50>;
-			focaltech,fw-delay-55-ms = <30>;
-			focaltech,fw-upgrade-id1 = <0x79>;
-			focaltech,fw-upgrade-id2 = <0x03>;
-			focaltech,fw-delay-readid-ms = <10>;
-			focaltech,fw-delay-era-flsh-ms = <2000>;
-		};
-	};
-
-	gen-vkeys {
-		compatible = "qcom,gen-vkeys";
-		label = "ft5x06_ts";
-		qcom,disp-maxx = <1080>;
-		qcom,disp-maxy = <1920>;
-		qcom,panel-maxx = <1080>;
-		qcom,panel-maxy = <2080>;
-		qcom,key-codes = <139 102 158>;
-		qcom,y-offset = <0>;
+	uart5_remote: uart@f9922000 {
+		status = "ok";
 	};
 
 	gpio_keys {
 		compatible = "gpio-keys";
 		input-name = "gpio-keys";
 
-		camera_focus {
-			label = "camera_focus";
-			gpios = <&msmgpio 108 0x1>;
+		vol_down { /*Yixue.Ge@ProDrv.BL add for volume down key*/
+			label = "volume_down";
+			gpios = <&msmgpio 106 0x1>;
 			linux,input-type = <1>;
-			linux,code = <0x210>;
+			linux,code = <114>;
 			gpio-key,wakeup;
 			debounce-interval = <15>;
 		};
-
-		camera_snapshot {
-			label = "camera_snapshot";
-			gpios = <&msmgpio 107 0x1>;
-			linux,input-type = <1>;
-			linux,code = <0x2fe>;
-			gpio-key,wakeup;
-			debounce-interval = <15>;
-		};
-
 		vol_up {
 			label = "volume_up";
-			gpios = <&msmgpio 106 0x1>;
+			gpios = <&msmgpio 107 0x1>;
 			linux,input-type = <1>;
 			linux,code = <115>;
 			gpio-key,wakeup;
@@ -151,7 +80,8 @@
 
 		qcom,cdc-mclk-gpios = <&pm8226_gpios 1 0>;
 		qcom,cdc-vdd-spkr-gpios = <&pm8226_gpios 2 0>;
-		qcom,cdc-us-euro-gpios = <&msmgpio 69 0>;
+		qcom,cdc-enable-spk-gpios = <&msmgpio 62 0>;
+		qcom,cdc-boost-spk-gpios = <&msmgpio 69 0>;
 	};
 
 	sound-9302 {
@@ -293,7 +223,7 @@
 				linux,name = "button-backlight";
 				linux,default-trigger = "none";
 				qcom,default-state = "off";
-				qcom,max-current = <40>;
+				qcom,max-current = <15>;
 				qcom,current-setting = <5>;
 				qcom,id = <6>;
 				qcom,mode = "manual";
@@ -302,57 +232,53 @@
 			};
 		};
 
+		qcom,leds@a500 {
+			status = "disable";
+			qcom,led_mpp_6 {
+				label = "mpp";
+				linux,name = "back";
+				linux,default-trigger = "none";
+				qcom,default-state = "off";
+				qcom,max-current = <15>;
+				qcom,current-setting = <5>;
+				qcom,id = <6>;
+				qcom,mode = "pwm";
+				qcom,pwm-us = <1000>;
+				qcom,source-sel = <10>;
+				qcom,mode-ctrl = <0x60>;
+				qcom,pwm-channel = <5>;
+				qcom,start-idx = <1>;
+
+				qcom,ramp-step-ms = <100>;
+				qcom,duty-pcts = [10 15 20 25 30 35 40 45 50
+                          			  55 60 65 70 75 80 80 80 80 80
+                       				  80 80 75 70 65 60 55 50 45 40
+                     			          35 30 25 20 15 10 00 
+               	           			  00 00 00 00 00 00 00 
+						  00 00 00 00 00 00 
+                          			  00 00 00 00 00 00];
+				qcom,use-blink;
+			};
+		};
 		qcom,leds@a300 {
 			status = "okay";
 			qcom,led_mpp_4 {
 				label = "mpp";
-				linux,name = "green";
-				linux,default-trigger = "battery-full";
-				qcom,default-state = "off";
+				linux,name = "wled-backlight";
+				linux,default-trigger = "bkl-trigger";
+				qcom,default-state = "on";
 				qcom,max-current = <40>;
-				qcom,current-setting = <5>;
 				qcom,id = <6>;
 				qcom,mode = "pwm";
-				qcom,pwm-us = <1000>;
+				qcom,pwm-us = <31>;
+				qcom,mode-ctrl = <0x10>;
 				qcom,source-sel = <8>;
-				qcom,mode-ctrl = <0x60>;
 				qcom,pwm-channel = <0>;
-				qcom,start-idx = <1>;
-				qcom,ramp-step-ms = <120>;
-				qcom,duty-pcts = [00 00 00 00 00
-						  00 00 00 00 00
-						  50 00 00 00 00
-						  00 00 00 00 00
-						  00];
-				qcom,use-blink;
+				qcom,vin-ctrl = <0x03>;
+				qcom,min-brightness = <9>;
 			};
 		};
-
-		qcom,leds@a500 {
-			status = "okay";
-			qcom,led_mpp_6 {
-				label = "mpp";
-				linux,name = "red";
-				linux,default-trigger = "battery-charging";
-				qcom,default-state = "off";
-				qcom,max-current = <40>;
-				qcom,current-setting = <5>;
-				qcom,id = <6>;
-				qcom,mode = "pwm";
-				qcom,pwm-us = <1000>;
-				qcom,mode-ctrl = <0x60>;
-				qcom,source-sel = <10>;
-				qcom,pwm-channel = <5>;
-				qcom,start-idx = <1>;
-				qcom,ramp-step-ms = <120>;
-				qcom,duty-pcts = [00 00 00 00 00
-						  00 00 00 00 00
-						  50 00 00 00 00
-						  00 00 00 00 00
-						  00];
-				qcom,use-blink;
-			};
-		};
+		
 	};
 
 	qcom,pm8226@1 {
@@ -361,7 +287,7 @@
                 };
 
 		qcom,leds@d800 {
-			status = "okay";
+			status = "disable";
 			qcom,wled_0 {
 				label = "wled";
 				linux,name = "wled:backlight";
@@ -428,12 +354,9 @@
 	};
 
 	gpio@c100 { /* GPIO 2 */
-		qcom,mode = <1>;
-		qcom,output-type = <0>;
+		qcom,mode = <0>;
 		qcom,pull = <5>;
 		qcom,vin-sel = <3>;
-		qcom,out-strength = <3>;
-		qcom,src-sel = <2>;
 		qcom,master-en = <1>;
 	};
 
@@ -484,7 +407,6 @@
 
 &slim_msm {
 	tapan_codec {
-		qcom,cdc-micbias1-ext-cap;
 		qcom,cdc-micbias3-ext-cap;
 	};
 };
@@ -503,8 +425,6 @@
 };
 
 &android_usb {
-	qcom,android-usb-cdrom;
-	qcom,android-usb-internal-ums;
 };
 
 &mdss_mdp {

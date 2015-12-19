@@ -12,7 +12,6 @@
 
 /include/ "msm8926.dtsi"
 /include/ "msm8226-qrd.dtsi"
-/include/ "msm8926-camera-sensor-qrd.dtsi"
 
 &qrd_batterydata {
 	qcom,rpull-up-kohm = <100>;
@@ -23,6 +22,7 @@
 
 &pm8226_bms {
 	qcom,battery-data = <&qrd_batterydata>;
+	qcom,use-external-rsense;
 };
 
 &pm8226_chg {
@@ -31,71 +31,88 @@
 
 &soc {
 	i2c@f9927000 { /* BLSP1 QUP5 */
-		focaltech@38 {
-			compatible = "focaltech,5x06";
-			reg = <0x38>;
+		synaptics@20 {/*tong.han add for TP */
+			compatible = "synaptic,s3203";
+			reg = <0x20>;
 			interrupt-parent = <&msmgpio>;
-			interrupts = <17 0x2>;
-			vdd-supply = <&pm8226_l19>;
-			vcc_i2c-supply = <&pm8226_lvs1>;
-			focaltech,name = "ft5336";
-			focaltech,family-id = <0x14>;
-			focaltech,reset-gpio = <&msmgpio 16 0x00>;
-			focaltech,irq-gpio = <&msmgpio 17 0x00>;
-			focaltech,display-coords = <0 0 720 1280>;
-			focaltech,panel-coords = <0 0 720 1400>;
-			focaltech,button-map= <139 102 158>;
-			focaltech,no-force-update;
-			focaltech,i2c-pull-up;
-			focaltech,group-id = <1>;
-			focaltech,hard-reset-delay-ms = <20>;
-			focaltech,soft-reset-delay-ms = <200>;
-			focaltech,num-max-touches = <5>;
-			focaltech,fw-name = "ft_8926_qrd_fw.bin";
-			focaltech,fw-delay-aa-ms = <30>;
-			focaltech,fw-delay-55-ms = <30>;
-			focaltech,fw-upgrade-id1 = <0x11>;
-			focaltech,fw-upgrade-id2 = <0x11>;
-			focaltech,fw-delay-readid-ms = <10>;
-			focaltech,fw-delay-era-flsh-ms = <2000>;
-			focaltech,fw-auto-cal;
-			focaltech,ignore-id-check;
+			interrupts = <17 0x8>;
+			synaptics,irq-gpio = <&msmgpio 17 0x00>;
+			synaptics,id1-gpio = <&msmgpio 12 0x00>;
+			synaptics,id2-gpio = <&msmgpio 66 0x00>;
+			synaptics,id3-gpio = <&msmgpio 119 0x00>;
+			synaptics,max-num-support = <10>;
+			synaptics,max-x-point = <10>;
+			synaptics,max-y-point = <1760>;
+			synaptics,button-map= <70 150 907>;//width-height-y.position
+			synaptics,tx-rx-num = <12 22>;
+			synaptics,display-coords = <480 854>;
+			vdd_2v8-supply = <&pm8226_l19>;
+			vcc_i2c_1v8-supply = <&pm8226_lvs1>;
+			synaptics,i2c-pull-up;
+			synaptics,power-down;
+			synaptics,disable-gpios;
+		};
+
+		qcom_smb358@57 {
+			compatible = "qcom,smb358-charger";
+			reg = <0x57>;
+			vcc_i2c_smb358-supply = <&pm8226_lvs1>;
+			qcom,stat-gpio = <&pm8226_gpios 0x02 0x01>;
+			qcom,input-current-max-ma = <1000>;
+			qcom,fastchg-current-max-ma = <1300>;
+			qcom,disable-apsd;
+			qcom,bms-psy-name = "bms";
+			qcom,iterm-ma = <150>;
+			qcom,float-voltage-mv = <4340>;
+			qcom,recharge-mv = <200>;
+			qcom,charger-inhibit-disabled;
+			qcom,chg-vadc = <&pm8226_vadc>;
+			qcom,chg-adc_tm = <&pm8226_adc_tm>;
+			qcom,hot_bat_decidegc = <550>;
+			qcom,warm_bat_decidegc = <450>;
+			qcom,little_cool_bat_decidegc = <50>;
+			qcom,cool_bat_decidegc = <0>;
+			qcom,cold_bat_decidegc = <100>;
+			qcom,bat_present_decidegc = <200>;
+			qcom,temp_cool_vfloat_mv = <4020>;
+			qcom,temp_cool_fastchg_current_ma = <250>;
+			qcom,temp_little_cool_vfloat_mv = <4220>;
+			qcom,temp_little_cool_fastchg_current_ma = <570>;
+			qcom,temp_warm_vfloat_mv = <4120>;
+			qcom,temp_warm_fastchg_current_ma = <570>;
+			qcom,non_standard_vfloat_mv = <4220>;
+			qcom,non_standard_fastchg_current_ma = <570>;
+			regulator-name = "boost_for_otg";
 		};
 	};
 
-	gen-vkeys {
-		compatible = "qcom,gen-vkeys";
-		label = "ft5x06_ts";
-		qcom,disp-maxx = <720>;
-		qcom,disp-maxy = <1280>;
-		qcom,panel-maxx = <720>;
-		qcom,panel-maxy = <1404>;
-		qcom,key-codes = <139 172 158>;
-		qcom,y-offset = <0>;
-	};
 
-	gpio-leds {
-		compatible = "gpio-leds";
-		keypad-backlight {
-			gpios = <&msmgpio 34 0>;
-			label = "button-backlight";
-			linux,default-trigger = "none";
-		};
-	};
+	/*qiang.zhang@proDrv.Sen,2014-03-21, add for uei*/
+	uei {
+		compatible = "uei";
+		uei,power-gpio = <&msmgpio 109 0x2008>;
+	};	
 };
 
-&spmi_bus {
-	qcom,pm8226@0 {
-		qcom,leds@a100 {
-			status = "disable";
-			};
-		};
-};
 
+/*yixue.ge modify*/
 &mdss_dsi0 {
-	qcom,dsi-pref-prim-pan = <&dsi_ssd2080m_720_vid>;
+        qcom,dsi-pref-prim-pan3 = <&dsi_oppo14013tm_fwvga_video>;
+	qcom,dsi-pref-prim-pan3 = <&dsi_oppo14013truly_fwvga_video>;
 };
 
-&dsi_ssd2080m_720_vid {
+&dsi_oppo14013tm_fwvga_video {
 	qcom,cont-splash-enabled;
 };
+
+&dsi_oppo14013truly_fwvga_video {
+	qcom,cont-splash-enabled;
+};
+
+/*Fanhong.Kong@ProDrv.CHG for 14013*/
+/* use external rsense here */
+&pm8226_iadc {
+        qcom,rsense_20 = <20000000>;
+		qcom,rsense = <10000000>;
+};
+

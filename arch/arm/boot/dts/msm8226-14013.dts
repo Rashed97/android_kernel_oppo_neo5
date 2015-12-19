@@ -10,12 +10,12 @@
  * GNU General Public License for more details.
  */
 
-/include/ "dsi-panel-hx8394a-720p-video.dtsi"
-/include/ "dsi-panel-nt35590-720p-video.dtsi"
-/include/ "dsi-panel-nt35521-720p-video.dtsi"
-/include/ "dsi-panel-nt35596-1080p-video.dtsi"
-/include/ "dsi-panel-nt35590-720p-cmd.dtsi"
-/include/ "dsi-panel-ssd2080m-720p-video.dtsi"
-/include/ "dsi-panel-jdi-1080p-video.dtsi"
-/include/ "dsi-panel-oppo14013tm-fwvga-video.dtsi"
-/include/ "dsi-panel-oppo14013truly-fwvga-video.dtsi"
+/dts-v1/;
+/include/ "msm8926-qrd-skug.dtsi"
+
+/ {
+	model = "Qualcomm MSM 8926 QRD SKUG";
+	compatible = "qcom,msm8926-qrd", "qcom,msm8926", "qcom,qrd";
+	qcom,board-id = <11 5 14013>;
+};
+
