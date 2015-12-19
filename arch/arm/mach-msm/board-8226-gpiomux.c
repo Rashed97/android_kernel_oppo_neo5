@@ -111,22 +111,23 @@ static struct gpiomux_setting gpio_spi_act_config = {
 	.pull = GPIOMUX_PULL_NONE,
 };
 
+static struct gpiomux_setting gpio_spi_act_miso_config = {
+	.func = GPIOMUX_FUNC_1,
+	.drv = GPIOMUX_DRV_8MA,
+	.pull = GPIOMUX_PULL_UP,
+	.dir = GPIOMUX_IN,
+};
 static struct gpiomux_setting gpio_spi_cs_act_config = {
 	.func = GPIOMUX_FUNC_1,
 	.drv = GPIOMUX_DRV_6MA,
-	.pull = GPIOMUX_PULL_DOWN,
+	.pull = GPIOMUX_PULL_NONE,
 };
 static struct gpiomux_setting gpio_spi_susp_config = {
 	.func = GPIOMUX_FUNC_GPIO,
 	.drv = GPIOMUX_DRV_2MA,
-	.pull = GPIOMUX_PULL_DOWN,
+	.pull = GPIOMUX_PULL_NONE,
 };
 
-static struct gpiomux_setting gpio_spi_cs_eth_config = {
-	.func = GPIOMUX_FUNC_4,
-	.drv = GPIOMUX_DRV_6MA,
-	.pull = GPIOMUX_PULL_DOWN,
-};
 
 static struct gpiomux_setting wcnss_5wire_suspend_cfg = {
 	.func = GPIOMUX_FUNC_GPIO,
@@ -146,16 +147,39 @@ static struct gpiomux_setting gpio_i2c_config = {
 	.pull = GPIOMUX_PULL_NONE,
 };
 
-static struct gpiomux_setting gpio_uart_active_cfg = {
+static struct gpiomux_setting gpio_uart_cfg = {
 	.func = GPIOMUX_FUNC_2,
 	.drv  = GPIOMUX_DRV_16MA,
 	.pull = GPIOMUX_PULL_NONE,
 };
 
-static struct gpiomux_setting gpio_uart_suspend_cfg = {
+static struct gpiomux_setting cdc_spk_active_config = {
+	.func = GPIOMUX_FUNC_GPIO,
+	.drv = GPIOMUX_DRV_8MA,
+	.pull = GPIOMUX_PULL_UP,
+};
+
+static struct gpiomux_setting cdc_spk_suspended_config = {
 	.func = GPIOMUX_FUNC_GPIO,
 	.drv = GPIOMUX_DRV_2MA,
 	.pull = GPIOMUX_PULL_DOWN,
+};
+
+static struct msm_gpiomux_config cdc_spk_configs[] __initdata = {
+    {
+		.gpio = 62, 
+		.settings = {
+			[GPIOMUX_ACTIVE]    = &cdc_spk_active_config,
+			[GPIOMUX_SUSPENDED] = &cdc_spk_suspended_config,
+		},
+	},
+	{
+		.gpio = 69, 
+		.settings = {
+			[GPIOMUX_ACTIVE]    = &cdc_spk_active_config,
+			[GPIOMUX_SUSPENDED] = &cdc_spk_suspended_config,
+		},
+	},
 };
 
 static struct msm_gpiomux_config msm_keypad_configs[] __initdata = {
@@ -204,12 +228,63 @@ static struct msm_gpiomux_config msm_lcd_configs[] __initdata = {
 		},
 	},
 	{
-		.gpio = 109,		/* LCD Enable */
+		.gpio = 23,		/* LCD Enable */
+		.settings = {
+			[GPIOMUX_ACTIVE]    = &lcd_rst_act_cfg,
+			[GPIOMUX_SUSPENDED] = &lcd_rst_sus_cfg,
+		},
+	},
+	{
+		.gpio = 109,		/* BL  Enable*/
 		.settings = {
 			[GPIOMUX_ACTIVE]    = &lcd_rst_act_cfg,
 			[GPIOMUX_SUSPENDED] = &lcd_rst_sus_cfg,
 		},
 	}
+	
+};
+
+static struct gpiomux_setting  tert_mi2s_act_cfg = {
+        .func = GPIOMUX_FUNC_1,
+        .drv = GPIOMUX_DRV_8MA,
+        .pull = GPIOMUX_PULL_NONE,
+};
+
+static struct gpiomux_setting  tert_mi2s_sus_cfg = {
+        .func = GPIOMUX_FUNC_GPIO,
+        .drv = GPIOMUX_DRV_2MA,
+        .pull = GPIOMUX_PULL_DOWN,
+};
+
+static struct msm_gpiomux_config msm8226_tert_mi2s_configs[] __initdata = {
+        {
+                .gpio   = 49,
+                .settings = {
+                        [GPIOMUX_SUSPENDED] = &tert_mi2s_sus_cfg,
+                        [GPIOMUX_ACTIVE] = &tert_mi2s_act_cfg,
+                },
+        },
+        {
+                .gpio   = 50,
+                        .settings = {
+                        [GPIOMUX_SUSPENDED] = &tert_mi2s_sus_cfg,
+                        [GPIOMUX_ACTIVE] = &tert_mi2s_act_cfg,
+                },
+        },
+        {
+                .gpio = 52,
+                .settings = {
+                        [GPIOMUX_SUSPENDED] = &tert_mi2s_sus_cfg,
+                        [GPIOMUX_ACTIVE] = &tert_mi2s_act_cfg,
+                },
+        },
+        {
+                .gpio = 51,
+                .settings = {
+                        [GPIOMUX_SUSPENDED] = &tert_mi2s_sus_cfg,
+                        [GPIOMUX_ACTIVE] = &tert_mi2s_act_cfg,
+                },
+        },
 };
 
 static struct msm_gpiomux_config msm_blsp_configs[] __initdata = {
@@ -223,7 +298,7 @@ static struct msm_gpiomux_config msm_blsp_configs[] __initdata = {
 	{
 		.gpio      = 1,		/* BLSP1 QUP1 SPI_DATA_MISO */
 		.settings = {
-			[GPIOMUX_ACTIVE] = &gpio_spi_act_config,
+			[GPIOMUX_ACTIVE] = &gpio_spi_act_miso_config,
 			[GPIOMUX_SUSPENDED] = &gpio_spi_susp_config,
 		},
 	},
@@ -269,12 +344,6 @@ static struct msm_gpiomux_config msm_blsp_configs[] __initdata = {
 			[GPIOMUX_SUSPENDED] = &gpio_i2c_config,
 		},
 	},
-	{
-		.gpio      = 22,		/* BLSP1 QUP1 SPI_CS_ETH */
-		.settings = {
-			[GPIOMUX_SUSPENDED] = &gpio_spi_cs_eth_config,
-		},
-	},
 	{					/*  NFC   */
 		.gpio      = 10,		/* BLSP1 QUP3 I2C_DAT */
 		.settings = {
@@ -308,33 +377,17 @@ static struct msm_gpiomux_config msm_synaptics_configs[] __initdata = {
 	},
 };
 
-static struct msm_gpiomux_config msm_blsp1_uart6_configs[] __initdata = {
+static struct msm_gpiomux_config msm_blsp1_uart5_configs[] __initdata = {
 	{
-		.gpio      = 20,		/* BLSP1 UART6 TX */
+		.gpio      = 20,		/* BLSP1 UART5 TX */
 		.settings = {
-			[GPIOMUX_ACTIVE]    = &gpio_uart_active_cfg,
-			[GPIOMUX_SUSPENDED] = &gpio_uart_suspend_cfg,
+			[GPIOMUX_SUSPENDED] = &gpio_uart_cfg,
 		},
 	},
 	{
-		.gpio      = 21,		/* BLSP1 UART6 RX */
+		.gpio      = 21,		/* BLSP1 UART5 RX */
 		.settings = {
-			[GPIOMUX_ACTIVE]    = &gpio_uart_active_cfg,
-			[GPIOMUX_SUSPENDED] = &gpio_uart_suspend_cfg,
-		},
-	},
-	{
-		.gpio      = 22,		/* BLSP1 UART6 CTS */
-		.settings = {
-			[GPIOMUX_ACTIVE]    = &gpio_uart_active_cfg,
-			[GPIOMUX_SUSPENDED] = &gpio_uart_suspend_cfg,
-		},
-	},
-	{
-		.gpio      = 23,		/* BLSP1 UART6 RTS */
-		.settings = {
-			[GPIOMUX_ACTIVE]    = &gpio_uart_active_cfg,
-			[GPIOMUX_SUSPENDED] = &gpio_uart_suspend_cfg,
+			[GPIOMUX_SUSPENDED] = &gpio_uart_cfg,
 		},
 	},
 };
@@ -599,7 +652,7 @@ static struct gpiomux_setting gpio_suspend_config[] = {
 static struct gpiomux_setting cam_settings[] = {
 	{
 		.func = GPIOMUX_FUNC_1, /*active 1*/ /* 0 */
-		.drv = GPIOMUX_DRV_2MA,
+		.drv = GPIOMUX_DRV_8MA,
 		.pull = GPIOMUX_PULL_NONE,
 	},
 
@@ -893,6 +946,8 @@ void __init msm8226_init_gpiomux(void)
 			ARRAY_SIZE(msm_lcd_configs));
 
 	msm_gpiomux_install(msm_sensor_configs, ARRAY_SIZE(msm_sensor_configs));
+	
+	 msm_gpiomux_install(msm8226_tert_mi2s_configs,ARRAY_SIZE(msm8226_tert_mi2s_configs));
 
 	if (of_board_is_skuf())
 		msm_gpiomux_install(msm_sensor_configs_skuf_plus,
@@ -901,8 +956,13 @@ void __init msm8226_init_gpiomux(void)
 	msm_gpiomux_install(msm_auxpcm_configs,
 			ARRAY_SIZE(msm_auxpcm_configs));
 
-	msm_gpiomux_install(msm_blsp1_uart6_configs,
-			ARRAY_SIZE(msm_blsp1_uart6_configs));
+
+/*xiaojun.lv@PhoneDpt.AudioDrv, 2014/03/16, add for 14033 spk control*/
+    	msm_gpiomux_install(cdc_spk_configs, ARRAY_SIZE(cdc_spk_configs));
+
+	//qiang.zhang@Bas Drv add for remote control, uart5 config
+	msm_gpiomux_install(msm_blsp1_uart5_configs,
+			ARRAY_SIZE(msm_blsp1_uart5_configs));
 
 	if (of_board_is_cdp() || of_board_is_mtp() || of_board_is_xpm())
 		msm_gpiomux_install(usb_otg_sw_configs,
