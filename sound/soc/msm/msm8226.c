@@ -2268,8 +2268,6 @@ static __devinit int msm8226_asoc_machine_probe(struct platform_device *pdev)
 	}
 
 /*xiaojun.lv@PhoneDpt.AudioDrv, 2014/03/16, add for 14033 spk control*/
-    if(is_project(OPPO_14033) || is_project(OPPO_14013))
-    {
         pdata->cdc_enable_spk_gpio = of_get_named_gpio(pdev->dev.of_node,
     				"qcom,cdc-enable-spk-gpios", 0);
     	if (pdata->cdc_enable_spk_gpio < 0) {
@@ -2292,7 +2290,6 @@ static __devinit int msm8226_asoc_machine_probe(struct platform_device *pdev)
     		goto err;
     	}
     	printk("%s pdata->cdc_boost_spk_gpio:%d\n", __func__, pdata->cdc_boost_spk_gpio);
-	}
 
 	ret = msm8226_prepare_codec_mclk(card);
 	if (ret)
@@ -2327,45 +2324,6 @@ static __devinit int msm8226_asoc_machine_probe(struct platform_device *pdev)
 		"%s: Auxpcm pin data parse failed\n", __func__);
 		goto err;
 	}
-#ifndef VENDOR_EDIT
-/*xiaojun.lv@PhoneDpt.AudioDrv, 2014/03/16, del for 14033 spk control*/
-	vdd_spkr_gpio = of_get_named_gpio(pdev->dev.of_node,
-				"qcom,cdc-vdd-spkr-gpios", 0);
-	if (vdd_spkr_gpio < 0) {
-		dev_dbg(&pdev->dev,
-			"Looking up %s property in node %s failed %d\n",
-			"qcom, cdc-vdd-spkr-gpios",
-			pdev->dev.of_node->full_name, vdd_spkr_gpio);
-	} else {
-		ret = gpio_request(vdd_spkr_gpio, "TAPAN_CODEC_VDD_SPKR");
-		if (ret) {
-			/* GPIO to enable EXT VDD exists, but failed request */
-			dev_err(card->dev,
-					"%s: Failed to request tapan vdd spkr gpio %d\n",
-					__func__, vdd_spkr_gpio);
-			goto err;
-		}
-	}
-
-	ext_spk_amp_gpio = of_get_named_gpio(pdev->dev.of_node,
-			"qcom,cdc-lineout-spkr-gpios", 0);
-	if (ext_spk_amp_gpio < 0) {
-		dev_err(&pdev->dev,
-			"Looking up %s property in node %s failed %d\n",
-			"qcom, cdc-lineout-spkr-gpios",
-			pdev->dev.of_node->full_name, ext_spk_amp_gpio);
-	} else {
-		ret = gpio_request(ext_spk_amp_gpio,
-				"TAPAN_CODEC_LINEOUT_SPKR");
-		if (ret) {
-			/* GPIO to enable EXT AMP exists, but failed request */
-			dev_err(card->dev,
-				"%s: Failed to request tapan amp spkr gpio %d\n",
-				__func__, ext_spk_amp_gpio);
-			goto err_vdd_spkr;
-		}
-	}
-#endif
 	msm8226_setup_hs_jack(pdev, pdata);
 
 	ret = of_property_read_string(pdev->dev.of_node,
@@ -2399,15 +2357,6 @@ err_lineout_spkr:
 		gpio_free(ext_spk_amp_gpio);
 		ext_spk_amp_gpio = -1;
 	}
-
-#ifndef VENDOR_EDIT
-/*xiaojun.lv@PhoneDpt.AudioDrv, 2014/03/16, del for 14033 spk control*/
-err_vdd_spkr:
-	if (vdd_spkr_gpio >= 0) {
-		gpio_free(vdd_spkr_gpio);
-		vdd_spkr_gpio = -1;
-	}
-#endif
 err:
 	if (pdata->mclk_gpio > 0) {
 		dev_dbg(&pdev->dev, "%s free gpio %d\n",

@@ -561,8 +561,6 @@ static int spkr_put_control(struct snd_kcontrol *kcontrol,
 	unsigned int value;
 	value = ucontrol->value.integer.value[0];
 	printk("%s:val %d\n",__func__,value);
-	if(is_project(OPPO_14033) || is_project(OPPO_14013))
-	{
         if(value) //on
         {
             if(tapan->mbhc.mbhc_cfg->cdc_bootst_spk_gpio)
@@ -595,7 +593,6 @@ static int spkr_put_control(struct snd_kcontrol *kcontrol,
                 msleep(10);
             }
         }
-	}
 	return 0;
 }
 

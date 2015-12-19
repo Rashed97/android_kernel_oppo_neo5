@@ -1447,20 +1447,6 @@ wcd9xxx_cs_find_plug_type(struct wcd9xxx_mbhc *mbhc,
 			if (!minv || minv > d->_vdces)
 				minv = d->_vdces;
 		}
-		/*OPPO 2014-03-28 zhzhyon Delete for headset detect*/
-		#ifndef VENDOR_EDIT
-		if ((!d->mic_bias &&
-		    (d->_vdces >= WCD9XXX_CS_MEAS_INVALD_RANGE_LOW_MV &&
-		     d->_vdces <= WCD9XXX_CS_MEAS_INVALD_RANGE_HIGH_MV)) ||
-		    (d->mic_bias &&
-		    (d->_vdces >= WCD9XXX_MEAS_INVALD_RANGE_LOW_MV &&
-		     d->_vdces <= WCD9XXX_MEAS_INVALD_RANGE_HIGH_MV))) {
-			pr_debug("%s: within invalid range\n", __func__);
-			type = PLUG_TYPE_INVALID;
-			goto exit;
-		}
-		#endif
-		/*OPPO 2014-03-28 zhzhyon Delete end*/
 	}
 
 	delta_thr = ((highhph_cnt == sz) || highhph) ?
@@ -2191,11 +2177,6 @@ static void wcd9xxx_mbhc_decide_swch_plug(struct wcd9xxx_mbhc *mbhc)
 		wcd9xxx_schedule_hs_detect_plug(mbhc,
 						&mbhc->correct_plug_swch);
 	} else if (plug_type == PLUG_TYPE_HEADPHONE) {
-		/*OPPO 2014-03-27 zhzhyon Delete for headset detect*/
-		#ifndef VENDOR_EDIT
-		wcd9xxx_report_plug(mbhc, 1, SND_JACK_HEADPHONE);
-		#endif
-		/*OPPO 2014-03-27 zhzhyon Delete end*/
 		wcd9xxx_cleanup_hs_polling(mbhc);
 		wcd9xxx_schedule_hs_detect_plug(mbhc,
 						&mbhc->correct_plug_swch);
@@ -2890,10 +2871,6 @@ static void wcd9xxx_correct_swch_plug(struct work_struct *work)
 							    SND_JACK_HEADPHONE);
 			} else if (mbhc->current_plug == PLUG_TYPE_NONE) {
 				/*OPPO 2014-03-27 zhzhyon Modify for headset detect*/
-				#ifndef VENDOR_EDIT
-				wcd9xxx_report_plug(mbhc, 1,
-						    SND_JACK_HEADPHONE);
-				#else
 				headp_count++;
 				if(headp_count == 2)
 				{
@@ -2902,7 +2879,6 @@ static void wcd9xxx_correct_swch_plug(struct work_struct *work)
 					WCD9XXX_BCL_UNLOCK(mbhc->resmgr);
 					break;
 				}
-				#endif
 				/*OPPO 2014-03-27 zhzhyon Modify end*/
 			}
 		} else if (plug_type == PLUG_TYPE_HIGH_HPH) {
