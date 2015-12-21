@@ -1,15 +1,15 @@
 /*************************************************************
- ** Copyright (C), 2008-2012, OPPO Mobile Comm Corp., Ltd 
- ** VENDOR_EDIT
+ ** Copyright (C), 2008-2012, OPPO Mobile Comm Corp., Ltd
+ **
  ** File        : pswitch.c
  ** Description : pswitch  Driver
  ** Date        : 2014-03-21 22:49
  ** Author      : Prd.SenDrv
- ** 
+ **
  ** ------------------ Revision History: ---------------------
  **      <author>        <date>          <desc>
- *************************************************************/ 
- 
+ *************************************************************/
+
 #include <linux/interrupt.h>
 #include <linux/module.h>
 #include <linux/gpio.h>
@@ -25,14 +25,14 @@
 #include <asm/uaccess.h>
 
 #ifdef PSWITCH_STATUS_PROC
-#include <linux/proc_fs.h> 
+#include <linux/proc_fs.h>
 static struct proc_dir_entry *rotordir = NULL;
 static char* rotor_node_name = "cam_status";
 #endif
 
 
 #ifdef PSWITCH_STATUS_SIGNAL
-#include <linux/fs.h>   
+#include <linux/fs.h>
 #include <asm/siginfo.h>
 #include <asm/signal.h>
 static struct fasync_struct *async_queue = NULL;
@@ -51,7 +51,7 @@ static unsigned int PSWITCH_IRQ_GPIO = 0xFFFF;
 #define PSWITCH_LOG(format, args...) printk(KERN_EMERG PSWITCH_DEV_NAME " "format,##args)
 
 
-//for switch shrapnel 
+//for switch shrapnel
 #define PSWITCH_IOCTL_BASE                   0x8A
 #define PSWITCH_IOCTL_GET_DATA				_IOR(PSWITCH_IOCTL_BASE, 0x00, int*)
 
@@ -81,7 +81,7 @@ int getCameraStatusByPswtich(void)
 
 #ifdef PSWITCH_STATUS_SIGNAL
 
-static int pswitch_fasync(int fd, struct file * filp, int on) 
+static int pswitch_fasync(int fd, struct file * filp, int on)
 {
     return fasync_helper(fd, filp, on, &async_queue);
 }
@@ -104,13 +104,13 @@ static void pswitch_work_func(struct work_struct *work)
     struct pswitch_sensor *priv = gpswitch;
 
     PSWITCH_LOG("%s enter\n",__func__);
-    
+
     msleep(50);
 
     if (__gpio_get_value(PSWITCH_IRQ_GPIO) != g_pswitch_status)
     {
         g_pswitch_status = priv->gpio_status = !g_pswitch_status;
-        
+
         PSWITCH_LOG(" %s now status is %s\n", __FUNCTION__,  priv->gpio_status ? "back" : "front");
 
         input_report_key(priv->input_dev, PSWITCH_EVENT_CODE, 1);
@@ -120,18 +120,18 @@ static void pswitch_work_func(struct work_struct *work)
 
         if (priv->gpio_status == 1)
         ret = irq_set_irq_type(priv->irq_num, IRQ_TYPE_LEVEL_LOW);
-        else 
+        else
         ret = irq_set_irq_type(priv->irq_num, IRQ_TYPE_LEVEL_HIGH);
 
 #ifdef PSWITCH_STATUS_SIGNAL
          if (async_queue)
-            kill_fasync(&async_queue, SIGIO, POLL_IN); 
+            kill_fasync(&async_queue, SIGIO, POLL_IN);
 #endif
-        
+
     }
     else
     {
-        PSWITCH_LOG(" %s ignore the invalid interrupt . \n", __FUNCTION__); 
+        PSWITCH_LOG(" %s ignore the invalid interrupt . \n", __FUNCTION__);
     }
     enable_irq(priv->irq_num);
 }
@@ -150,7 +150,7 @@ static DEVICE_ATTR(status, S_IRUGO | S_IWUSR | S_IWGRP,
                    pswitch_status_show, NULL);
 
 static struct attribute *pswitch_attributes[] = {
-       &dev_attr_status.attr,             
+       &dev_attr_status.attr,
 	NULL
 };
 
@@ -160,27 +160,27 @@ static struct attribute_group pswitch_attribute_group = {
 
 #ifdef PSWITCH_STATUS_PROC
 static ssize_t rotor_node_read(struct file *file, char __user *buf, size_t count, loff_t *pos)
-{	
-	char page[8]; 	
-	char *p = page;	
-	int len = 0; 	
-	p += sprintf(p, "%d\n", g_pswitch_status);	
-	len = p - page;	
-	if (len > *pos)		
-		len -= *pos;	
-	else		
-		len = 0;	
+{
+	char page[8];
+	char *p = page;
+	int len = 0;
+	p += sprintf(p, "%d\n", g_pswitch_status);
+	len = p - page;
+	if (len > *pos)
+		len -= *pos;
+	else
+		len = 0;
 
-	if (copy_to_user(buf,page,len < count ? len  : count))		
-		return -EFAULT;	
-	*pos = *pos + (len < count ? len  : count);	
+	if (copy_to_user(buf,page,len < count ? len  : count))
+		return -EFAULT;
+	*pos = *pos + (len < count ? len  : count);
 
 	return len < count ? len  : count;
 }
 
 static struct file_operations rotor_node_ctrl = {
 	.read = rotor_node_read,
-	//.write = rotor_node_write,  
+	//.write = rotor_node_write,
 };
 
 #endif
@@ -226,8 +226,8 @@ static const struct file_operations pswitch_fops =
     //.owner = THIS_MODULE,
     .open = pswitch_open,
     .release = pswitch_release,
-#ifdef PSWITCH_STATUS_SIGNAL    
-    .fasync = pswitch_fasync,    
+#ifdef PSWITCH_STATUS_SIGNAL
+    .fasync = pswitch_fasync,
 #endif
     .unlocked_ioctl = pswitch_unlocked_ioctl
 };
@@ -248,17 +248,17 @@ static int pswitch_probe(struct platform_device *pdev)
 	struct pswitch_sensor *priv;
 	struct device_node *np = pdev->dev.of_node;
 	PSWITCH_LOG("%s Enter\n",__func__);
-	
+
 	priv = kzalloc(sizeof(struct pswitch_sensor), GFP_KERNEL);
 	if (priv == NULL)
 	{
 		PSWITCH_LOG("allocate mem fail\n");
 		goto mem_err;
 	}
-	
+
 	pswitch_wq = create_singlethread_workqueue("pswitch_handler_wq");
 	INIT_WORK(&(priv->work), pswitch_work_func);
-	
+
 	priv->input_dev = input_allocate_device();
 	if (priv->input_dev == NULL)
 	{
@@ -266,7 +266,7 @@ static int pswitch_probe(struct platform_device *pdev)
 		goto input_allocate_err;
 	}
 	priv->input_dev->name = PSWITCH_DEV_NAME;
-	set_bit(PSWITCH_EVENT_TYPE, priv->input_dev->evbit);	
+	set_bit(PSWITCH_EVENT_TYPE, priv->input_dev->evbit);
 	set_bit(PSWITCH_EVENT_CODE, priv->input_dev->keybit);
 
 
@@ -285,7 +285,7 @@ static int pswitch_probe(struct platform_device *pdev)
 
 	PSWITCH_IRQ_GPIO = of_get_named_gpio(np, "pswitch,irq-gpio", 0);
 	PSWITCH_LOG("GPIO %d use for PSWITCH_DEV_NAME interrupt\n",PSWITCH_IRQ_GPIO);
-	
+
 	ret = gpio_request(PSWITCH_IRQ_GPIO, PSWITCH_DEV_NAME);
 	if (ret) {
 		PSWITCH_LOG(" unable to request gpio %d\n", PSWITCH_IRQ_GPIO);
@@ -296,20 +296,20 @@ static int pswitch_probe(struct platform_device *pdev)
 		PSWITCH_LOG(" unable to set gpio %d\n direction", PSWITCH_IRQ_GPIO);
 
 	priv->irq_num = gpio_to_irq(PSWITCH_IRQ_GPIO);
-	
+
 	PSWITCH_LOG("irq_num = %d\n", priv->irq_num);
-	
+
 	g_pswitch_status = priv->gpio_status = __gpio_get_value(PSWITCH_IRQ_GPIO);
 	PSWITCH_LOG("gpswitch->gpio_status = %d\n", priv->gpio_status);
-	
+
 	input_report_switch(priv->input_dev, PSWITCH_EVENT_CODE, priv->gpio_status);
 	input_sync(priv->input_dev);
 
 	if (priv->gpio_status == 1)
-		ret = request_irq(priv->irq_num, pswitch_irq_handler, 
+		ret = request_irq(priv->irq_num, pswitch_irq_handler,
 		IRQ_TYPE_LEVEL_LOW, PSWITCH_DEV_NAME, NULL);
-	else 
-		ret = request_irq(priv->irq_num, pswitch_irq_handler, 
+	else
+		ret = request_irq(priv->irq_num, pswitch_irq_handler,
 		IRQ_TYPE_LEVEL_HIGH, PSWITCH_DEV_NAME, NULL);
 
 	if (ret){
@@ -325,20 +325,20 @@ static int pswitch_probe(struct platform_device *pdev)
 	}
 
 #ifdef PSWITCH_STATUS_PROC
-        rotordir = proc_create(rotor_node_name, 0664, NULL, &rotor_node_ctrl); 
+        rotordir = proc_create(rotor_node_name, 0664, NULL, &rotor_node_ctrl);
         if (rotordir == NULL)
         {
             PSWITCH_LOG(" create proc/%s fail\n", rotor_node_name);
             goto irq_err;
         }
-#endif    
+#endif
 
 	gpswitch = priv;
 	enable_irq_wake(priv->irq_num);
-	
+
 	PSWITCH_LOG("%s Exit\n", __func__);
 	return ret;
-	
+
 irq_err:
 	free_irq(priv->irq_num, PSWITCH_DEV_NAME);
 gpio_err:

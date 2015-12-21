@@ -1,6 +1,6 @@
 /**
  * Copyright 2008-2013 OPPO Mobile Comm Corp., Ltd, All rights reserved.
- * VENDOR_EDIT:
+ *
  * FileName:devinfo.c
  * ModuleName:devinfo
  * Author: wangjc
@@ -37,7 +37,7 @@ static int device_read_proc(char *page, char **start, off_t off,
 			   int count, int *eof, void *data)
 {
 	struct manufacture_info *priv = data;
-	
+
 	int len = device_proc_output (page, priv);
 	if (len <= off+count)
 		*eof = 1;
@@ -122,11 +122,11 @@ static void mainboard_verify(void)
 {
 	struct manufacture_info mainboard_info;
 	switch(get_PCB_Version()) {
-		case HW_VERSION__10:		
+		case HW_VERSION__10:
 			mainboard_info.version ="10";
 			mainboard_info.manufacture = "SA(SB)";
 			break;
-		case HW_VERSION__11:	
+		case HW_VERSION__11:
 			mainboard_info.version = "11";
 			mainboard_info.manufacture = "SC";
 			break;
@@ -150,10 +150,10 @@ static void mainboard_verify(void)
 			mainboard_info.version = "15";
 			mainboard_info.manufacture = "T3-T4";
 			break;
-		default:	
+		default:
 			mainboard_info.version = "UNKOWN";
 			mainboard_info.manufacture = "UNKOWN";
-	}	
+	}
 	register_device_proc("mainboard", mainboard_info.version, mainboard_info.manufacture);
 }
 
@@ -161,67 +161,12 @@ static void mainboard_verify(void)
 static void pa_verify(void)
 {
 	struct manufacture_info pa_info;
-	if(is_project(OPPO_14027))
-	{
 		switch(get_Modem_Version()) {
-			case 0:		
-				pa_info.version = "0";
-				pa_info.manufacture = "14027 0";
-				break;
-			case 1:		
-				pa_info.version = "1";
-				pa_info.manufacture = "14027 1";
-				break;
-			default:	
-				pa_info.version = "UNKOWN";
-				pa_info.manufacture = "UNKOWN";
-		}
-	}else if(is_project(OPPO_14029))
-	{
-		switch(get_Modem_Version()) {
-			case 0:		
-				pa_info.version = "0";
-				pa_info.manufacture = "14029 0";
-				break;
-			case 1:		
-				pa_info.version = "1";
-				pa_info.manufacture = "14029 1";
-				break;
-			case 2:		
-				pa_info.version = "2";
-				pa_info.manufacture = "14029 10";
-				break;
-			case 3:		
-				pa_info.version = "3";
-				pa_info.manufacture = "14029 11";
-				break;
-			case 4:		
-				pa_info.version = "4";
-				pa_info.manufacture = "14029 100";
-				break;
-			case 5:		
-				pa_info.version = "5";
-				pa_info.manufacture = "14029 101";
-				break;
-			case 6:		
-				pa_info.version = "6";
-				pa_info.manufacture = "14029 110";
-				break;
-			case 7:		
-				pa_info.version = "7";
-				pa_info.manufacture = "14029 111";
-				break;
-			default:	
-				pa_info.version = "UNKOWN";
-				pa_info.manufacture = "UNKOWN";
-		}
-	}else{
-		switch(get_Modem_Version()) {
-			case 0:		
+			case 0:
 				pa_info.version = "0";
 				pa_info.manufacture = "RFMD PA";
 				break;
-			case 1:	
+			case 1:
 				pa_info.version = "1";
 				pa_info.manufacture = "SKY PA";
 				break;
@@ -229,19 +174,17 @@ static void pa_verify(void)
 				pa_info.version = "3";
 				pa_info.manufacture = "AVAGO PA";
 				break;
-			default:	
+			default:
 				pa_info.version = "UNKOWN";
 				pa_info.manufacture = "UNKOWN";
 		}
-	}		
 	register_device_proc("pa", pa_info.version, pa_info.manufacture);
-
 }
 
 static int __init device_info_init(void)
 {
 	int ret = 0;
-	
+
 	parent =  proc_mkdir ("devinfo", NULL);
 	if(!parent) {
 		pr_err("can't create devinfo proc\n");
@@ -256,9 +199,7 @@ static int __init device_info_init(void)
 
 static void __exit device_info_exit(void)
 {
-
 	remove_proc_entry("devinfo", NULL);
-
 }
 
 module_init(device_info_init);

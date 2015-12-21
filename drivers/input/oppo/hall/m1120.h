@@ -28,7 +28,7 @@
 /* register map */
 /* ********************************************************* */
 #define M1120_REG_PERSINT					(0x00)
-#define M1120_VAL_PERSINT_COUNT(n)			((n-1)<<4)					
+#define M1120_VAL_PERSINT_COUNT(n)			((n-1)<<4)
 #define M1120_VAL_PERSINT_INTCLR			(0x01)
 	/*
 		[7:4]	PERS		: interrupt persistence count
@@ -65,7 +65,7 @@
 /* --------------------------------------------------------- */
 #define M1120_REG_LTHL						(0x02)
 	/*
-		[7:0]	LTHL		: low byte of low threshold value	
+		[7:0]	LTHL		: low byte of low threshold value
 	*/
 /* --------------------------------------------------------- */
 #define M1120_REG_LTHH						(0x03)
@@ -75,7 +75,7 @@
 /* --------------------------------------------------------- */
 #define M1120_REG_HTHL						(0x04)
 	/*
-		[7:0]	HTHL		: low byte of high threshold value	
+		[7:0]	HTHL		: low byte of high threshold value
 	*/
 /* --------------------------------------------------------- */
 #define M1120_REG_HTHH						(0x05)
@@ -168,7 +168,7 @@
 /* ********************************************************* */
 /* ioctl command */
 /* ********************************************************* */
- typedef  struct 
+ typedef  struct
 {
     short cali_flag;
     short lowthd;

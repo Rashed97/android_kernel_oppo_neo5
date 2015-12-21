@@ -1,6 +1,6 @@
 /**
  * Copyright 2008-2013 OPPO Mobile Comm Corp., Ltd, All rights reserved.
- * VENDOR_EDIT:
+ *
  * FileName:devinfo.h
  * ModuleName:devinfo
  * Author: wangjc
@@ -17,7 +17,7 @@
 //dram type
 enum{
 	DRAM_TYPE0 = 0,
-	DRAM_TYPE1,	
+	DRAM_TYPE1,
 	DRAM_TYPE2,
 	DRAM_TYPE3,
 	DRAM_UNKNOWN,

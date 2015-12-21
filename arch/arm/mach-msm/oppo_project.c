@@ -4,7 +4,7 @@
 #include <asm/uaccess.h>
 #include <linux/module.h>
 #include <linux/kernel.h>
-#include <linux/proc_fs.h> 
+#include <linux/proc_fs.h>
 #include <mach/msm_smem.h>
 #include <mach/oppo_reserve3.h>
 #include <linux/fs.h>
@@ -18,26 +18,10 @@ static struct proc_dir_entry *oppoReserve3 = NULL;
 static unsigned int lcd_gamaflag = 0;
 
 int __init  init_lcd_gamaflag(void)
-{	
+{
     char *substr;
 	char buf[32] = {0};
 	int i = 0;
-//Added project control by Tong.han@BSP.group.TP for some device not ota LK
-	if((is_project(OPPO_13095)) || (is_project(OPPO_14029))){
-  	 	 substr = strstr(boot_command_line, "oppo.lcd_gamaflag=");
-  		 if(substr) {
-     		   substr += strlen("oppo.lcd_gamaflag=");
-				while((substr[i] != ' ') && (i < 32))
-				{
-					buf[i] = substr[i];
-					i++;
-				}
-
-				sscanf(buf, "%d", &lcd_gamaflag);
-		
-
-   	 	} 	
-	}	
 	return 0;
 
 }
@@ -65,47 +49,47 @@ static int set_emmc_lcd_gamaflag(unsigned int flag)
 	if(IS_ERR(pfile)){
 		pr_err("error occured while opening file /dev/oppo_custom.\n");
 		return -1;
-	}	
-	
+	}
+
 
 	fs = get_fs();
 	set_fs(KERNEL_DS);
 	num = vfs_read(pfile, buf, BUF_SIZE, &pos);
 	if(num != BUF_SIZE)
-	{	
-		
+	{
+
 		printk("%s vfs_read fail %d\n",__func__,num);
 		filp_close(pfile, NULL);
 		return -1;
 	}
-	
+
 	pdata = (reserve3_data *)buf;
 
-	//init magic	
-	if(pdata->oppomagic1 != OPFS_OPPOMAGIC1 || 
-		pdata->oppomagic2 != OPFS_OPPOMAGIC2 ){	
-		printk("set lcd gamaflag error for magic and init it!\n");	
+	//init magic
+	if(pdata->oppomagic1 != OPFS_OPPOMAGIC1 ||
+		pdata->oppomagic2 != OPFS_OPPOMAGIC2 ){
+		printk("set lcd gamaflag error for magic and init it!\n");
 		pdata->oppomagic1 = OPFS_OPPOMAGIC1;
 		pdata->oppomagic2 = OPFS_OPPOMAGIC2;
 	}
-	
+
 	pdata->gama_flag = flag;
-	
+
 	pos = 0;
-	
+
 	num = vfs_write(pfile, buf, BUF_SIZE, &pos);
 	if(num != BUF_SIZE)
-	{	
-		
+	{
+
 		printk("%s vfs_write fail %d\n",__func__,num);
 		filp_close(pfile, NULL);
 		return -1;
 	}
-	
+
 	filp_close(pfile, NULL);
-	
+
 	set_fs(fs);
-	
+
 	return 0;
 }
 
@@ -115,13 +99,13 @@ static ssize_t lcd_gamaflag_read_proc(struct file *pfile, char __user *buf, size
 	int len = sprintf(page,"%d",lcd_gamaflag);
 
 	if (len > *pos)
-		len -= *pos;	
+		len -= *pos;
 	else
 		len = 0;
 	if (copy_to_user(buf,page,len < count ? len  : count))
-		return -EFAULT;	
+		return -EFAULT;
 	*pos = *pos + (len < count ? len  : count);
-	
+
 	return len < count ? len  : count;
 
 }
@@ -134,12 +118,12 @@ static ssize_t lcd_gamaflag_write_proc(struct file *pfile, const char __user *bu
 
 	if(len > 64)
 		len = 64;
-	
+
 	if (len > *pos)
-		len -= *pos;	
+		len -= *pos;
 	else
 		len = 0;
-	
+
 	if(copy_from_user(page,buf,len))
 		return len;
 
@@ -148,8 +132,8 @@ static ssize_t lcd_gamaflag_write_proc(struct file *pfile, const char __user *bu
 		return -1;
 
 	*pos = *pos + (len < count ? len  : count);
-	
-	
+
+
 	return len < count ? len  : count;
 }
 
@@ -163,7 +147,7 @@ static int __init oppo_reserve3_init(void)
 {
 	int ret = 0;
 	struct proc_dir_entry *pentry;
-	
+
 	oppoReserve3 =  proc_mkdir ("oppoReserve3", NULL);
 	if(!oppoReserve3) {
 		pr_err("can't create oppoReserve3 proc\n");
@@ -175,7 +159,7 @@ static int __init oppo_reserve3_init(void)
 		pr_err("create prjVersion proc failed.\n");
 		return -ENOENT;
 	}
-	
+
 	return ret;
 }
 
@@ -196,14 +180,14 @@ static ProjectInfoCDTType *format = NULL;
 
 
 unsigned int init_project_version(void)
-{	
+{
 	unsigned int len = (sizeof(ProjectInfoCDTType) + 3)&(~0x3);
 
 	format = (ProjectInfoCDTType *)smem_alloc2(SMEM_PROJECT,len);
 
 	if(format)
 		return format->nProject;
-	
+
 	return 0;
 }
 
@@ -249,40 +233,40 @@ static int prjVersion_read_proc(char *page, char **start, off_t off,
     unsigned char operator_version;
 	int len;
 	operator_version = get_Operator_Version();
-	
+
     if(is_project(OPPO_14033)){
 	    if(operator_version == 3)
 		   len = sprintf(page,"%d",14035);
-		else 
+		else
 		   len = sprintf(page,"%d",14033);
     }
 	else if(is_project(OPPO_14013)){
 	    if(operator_version == 3)
 		   len = sprintf(page,"%d",14016);
-		else 
+		else
 		   len = sprintf(page,"%d",14013);
     }
 	else if(is_project(OPPO_14017)){
 	    if(operator_version == 3)
 		   len = sprintf(page,"%d",14018);
-		else 
+		else
 		   len = sprintf(page,"%d",14017);
     }
 	else if(is_project(OPPO_14029)){
 	    if(operator_version == 3)
 		   len = sprintf(page,"%d",14031);
-		else 
+		else
 		   len = sprintf(page,"%d",14029);
-    }		
+    }
 	else if(is_project(OPPO_13095)){
 	    if(operator_version == 3)
 		   len = sprintf(page,"%d",13084);
-		else 
+		else
 		   len = sprintf(page,"%d",13095);
-    }		
+    }
 	else
 	   len = sprintf(page,"%d",get_project());
-	
+
 	if (len <= off+count)
 		*eof = 1;
 	*start = page + off;
@@ -298,7 +282,7 @@ static int pcbVersion_read_proc(char *page, char **start, off_t off,
 			   int count, int *eof, void *data)
 {
 	int len = sprintf(page,"%d",get_PCB_Version());
-	
+
 	if (len <= off+count)
 		*eof = 1;
 	*start = page + off;
@@ -314,7 +298,7 @@ static int operatorName_read_proc(char *page, char **start, off_t off,
 			   int count, int *eof, void *data)
 {
 	int len = sprintf(page,"%d",get_Operator_Version());
-	
+
 	if (len <= off+count)
 		*eof = 1;
 	*start = page + off;
@@ -331,7 +315,7 @@ static int modemType_read_proc(char *page, char **start, off_t off,
 			   int count, int *eof, void *data)
 {
 	int len = sprintf(page,"%d",get_Modem_Version());
-	
+
 	if (len <= off+count)
 		*eof = 1;
 	*start = page + off;
@@ -347,7 +331,7 @@ static int __init oppo_project_init(void)
 {
 	int ret = 0;
 	struct proc_dir_entry *pentry;
-	
+
 	oppoVersion =  proc_mkdir ("oppoVersion", NULL);
 	if(!oppoVersion) {
 		pr_err("can't create oppoVersion proc\n");
@@ -374,7 +358,7 @@ static int __init oppo_project_init(void)
 		pr_err("create modemType proc failed.\n");
 		return -ENOENT;
 	}
-	
+
 	return ret;
 }
 

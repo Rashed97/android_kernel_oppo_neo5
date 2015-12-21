@@ -17,7 +17,6 @@ enum{
 	HW_VERSION__15, 	
 };
 
-
 enum{
 	RF_VERSION__UNKNOWN,
 	RF_VERSION__11,		
@@ -37,8 +36,6 @@ enum{
 
 #define GET_MODEM_VERSION() (get_Modem_Version())
 #define GET_OPERATOR_VERSION() (get_Operator_Version())
-
-
 
 enum OPPO_PROJECT {
 	OPPO_UNKOWN = 0,

@@ -1,15 +1,15 @@
 /*************************************************************
- ** Copyright (C), 2008-2012, OPPO Mobile Comm Corp., Ltd 
- ** VENDOR_EDIT
+ ** Copyright (C), 2008-2012, OPPO Mobile Comm Corp., Ltd
+ **
  ** File        : uei.c
- ** Description : uei 
+ ** Description : uei
  ** Date        : 2014-1-6 22:49
  ** Author      : Prd.SenDrv
- ** 
+ **
  ** ------------------ Revision History: ---------------------
  **      <author>        <date>          <desc>
- *************************************************************/ 
- 
+ *************************************************************/
+
 #include <linux/module.h>
 #include <linux/gpio.h>
 #include <linux/slab.h>
@@ -31,31 +31,31 @@ static struct of_device_id uei_device_id[] = {
 static int uei_probe(struct platform_device *pdev)
 {
 	int ret = 0;
-    int power_gpio_status = 0;
+	int power_gpio_status = 0;
 	struct device_node *np = pdev->dev.of_node;
 
 	UEI_LOG("%s Enter\n",__func__);
-		
+
 	UEI_POWER_GPIO = of_get_named_gpio(np, "uei,power-gpio", 0);
 	UEI_LOG("GPIO %d use for uei power\n",UEI_POWER_GPIO);
-	
+
 	ret = gpio_request(UEI_POWER_GPIO, UEI_DEV_NAME);
-	if (ret) 
-    {
+	if (ret)
+	{
 		UEI_LOG("unable to request gpio %d\n", UEI_POWER_GPIO);
 		goto gpio_err;
 	}
-    
+
 	ret = gpio_direction_output(UEI_POWER_GPIO, 1);
 	if (ret)
 		UEI_LOG("unable to set gpio %d\n direction", UEI_POWER_GPIO);
 
 	power_gpio_status = __gpio_get_value(UEI_POWER_GPIO);
 	UEI_LOG("gpio_status = %d\n", power_gpio_status);
-	
+
 	UEI_LOG("%s Exit\n", __func__);
 	return ret;
-	
+
 gpio_err:
 	gpio_free(UEI_POWER_GPIO);
 
@@ -75,13 +75,13 @@ static int uei_pm_suspend(struct platform_device *dev, pm_message_t state)
 {
 	int ret = 0;
 
-	UEI_LOG("%s\n", __func__);	
-	
+	UEI_LOG("%s\n", __func__);
+
 	ret = gpio_direction_output(UEI_POWER_GPIO, 0);
-	
+
 	if (ret)
 		UEI_LOG("unable to set gpio %d\n direction", UEI_POWER_GPIO);
-	
+
 	return 0;
 }
 
@@ -90,7 +90,7 @@ static int uei_pm_resume(struct platform_device *dev)
 {
 	int ret = 0;
 
-	UEI_LOG("%s\n", __func__);	
+	UEI_LOG("%s\n", __func__);
 
 	ret = gpio_direction_output(UEI_POWER_GPIO, 1);
 	if (ret)

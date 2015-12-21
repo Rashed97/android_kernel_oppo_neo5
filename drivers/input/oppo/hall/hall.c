@@ -1,15 +1,15 @@
 /*************************************************************
- ** Copyright (C), 2008-2012, OPPO Mobile Comm Corp., Ltd 
- ** VENDOR_EDIT
+ ** Copyright (C), 2008-2012, OPPO Mobile Comm Corp., Ltd
+ **
  ** File        : hall.c
  ** Description : Hall Sensor Driver
  ** Date        : 2014-1-6 22:49
  ** Author      : Prd.SenDrv
- ** 
+ **
  ** ------------------ Revision History: ---------------------
  **      <author>        <date>          <desc>
- *************************************************************/ 
- 
+ *************************************************************/
+
 #include <linux/interrupt.h>
 #include <linux/module.h>
 #include <linux/gpio.h>
@@ -29,7 +29,7 @@ static unsigned int HALL_IRQ_GPIO = 0xFFFF;
 
 #define HALL_STATUS_PROC
 #ifdef HALL_STATUS_PROC
-#include <linux/proc_fs.h> 
+#include <linux/proc_fs.h>
 #include <asm/uaccess.h>
 static struct proc_dir_entry *halldir = NULL;
 static char* hall_node_name = "hall_status";
@@ -70,7 +70,7 @@ static void hall_work_func(struct work_struct *work)
 
 	if (priv->gpio_status == 1)
 		ret = irq_set_irq_type(priv->irq_num, IRQ_TYPE_LEVEL_LOW);
-	else 
+	else
 		ret = irq_set_irq_type(priv->irq_num, IRQ_TYPE_LEVEL_HIGH);
 
 	input_report_switch(priv->input_dev, SW_LID, !priv->gpio_status);
@@ -82,41 +82,41 @@ static void hall_work_func(struct work_struct *work)
 
 #ifdef HALL_STATUS_PROC
 static ssize_t hall_node_read(struct file *file, char __user *buf, size_t count, loff_t *pos)
-{	
-	char page[8]; 	
-	char *p = page;	
-	int len = 0; 	
-	p += sprintf(p, "%d\n", ghall->gpio_status);	
-	len = p - page;	
-	if (len > *pos)		
-		len -= *pos;	
-	else		
-		len = 0;	
+{
+	char page[8];
+	char *p = page;
+	int len = 0;
+	p += sprintf(p, "%d\n", ghall->gpio_status);
+	len = p - page;
+	if (len > *pos)
+		len -= *pos;
+	else
+		len = 0;
 
-	if (copy_to_user(buf,page,len < count ? len  : count))		
-		return -EFAULT;	
-	*pos = *pos + (len < count ? len  : count);	
+	if (copy_to_user(buf,page,len < count ? len  : count))
+		return -EFAULT;
+	*pos = *pos + (len < count ? len  : count);
 
 	return len < count ? len  : count;
 }
 
 #if 0
 static ssize_t hall_node_write(struct file *file, char __user *buf, size_t count, loff_t *ppos)
-{	
-	char tmp[32] = {0};	
-	int ret;		
-	if (count > 2)		
-		return -EINVAL;		
+{
+	char tmp[32] = {0};
+	int ret;
+	if (count > 2)
+		return -EINVAL;
 	ret = copy_from_user(tmp, buf, 32);
-	
-	sscanf(tmp, "%d", &(ghall->gpio_status));	
-	
-	return count;	
+
+	sscanf(tmp, "%d", &(ghall->gpio_status));
+
+	return count;
 }
 #endif
 static struct file_operations hall_node_ctrl = {
 	.read = hall_node_read,
-	//.write = hall_node_write,  
+	//.write = hall_node_write,
 };
 
 #endif
@@ -129,17 +129,17 @@ static int hall_probe(struct platform_device *pdev)
 	struct hall_sensor *priv;
 	struct device_node *np = pdev->dev.of_node;
 	HALL_LOG("%s Enter\n",__func__);
-	
+
 	priv = kzalloc(sizeof(struct hall_sensor), GFP_KERNEL);
 	if (priv == NULL)
 	{
 		HALL_LOG("allocate mem fail\n");
 		goto mem_err;
 	}
-	
+
 	hall_wq = create_singlethread_workqueue("hall_handler_wq");
 	INIT_WORK(&(priv->work), hall_work_func);
-	
+
 	priv->input_dev = input_allocate_device();
 	if (priv->input_dev == NULL)
 	{
@@ -169,15 +169,15 @@ static int hall_probe(struct platform_device *pdev)
 		if (ret) {
 			HALL_LOG("Regulator set_vtg failed vreg_phy ret=%d\n", ret);
 		}
-	}	
+	}
 	ret = regulator_enable(priv->vreg_ctrl);
 	if (ret) {
 		HALL_LOG("Regulator vreg_phy enable failed ret=%d\n", ret);
 	}
-	
+
 	HALL_IRQ_GPIO = of_get_named_gpio(np, "hall,irq-gpio", 0);
 	HALL_LOG("GPIO %d use for HALL interrupt\n",HALL_IRQ_GPIO);
-	
+
 	ret = gpio_request(HALL_IRQ_GPIO, HALL_DEV_NAME);
 	if (ret) {
 		HALL_LOG(" unable to request gpio %d\n", HALL_IRQ_GPIO);
@@ -188,45 +188,45 @@ static int hall_probe(struct platform_device *pdev)
 		HALL_LOG(" unable to set gpio %d\n direction", HALL_IRQ_GPIO);
 
 	priv->irq_num = gpio_to_irq(HALL_IRQ_GPIO);
-	
+
 	HALL_LOG("irq_num = %d\n", priv->irq_num);
-	
+
 	irq_set_irq_wake(priv->irq_num, 1);
-	
+
 	priv->gpio_status = __gpio_get_value(HALL_IRQ_GPIO);
 	HALL_LOG("ghall->gpio_status = %d\n", priv->gpio_status);
-	
+
 	input_report_switch(priv->input_dev, SW_LID, !priv->gpio_status);
 	input_sync(priv->input_dev);
-  
+
     ghall = priv;
-    
+
 #ifdef HALL_STATUS_PROC
-        halldir = proc_create(hall_node_name, 0664, NULL, &hall_node_ctrl); 
+        halldir = proc_create(hall_node_name, 0664, NULL, &hall_node_ctrl);
         if (halldir == NULL)
         {
             printk(" create proc/%s fail\n", hall_node_name);
             goto gpio_err;
         }
-#endif   
+#endif
 
 	if (priv->gpio_status == 1)
-		ret = request_irq(priv->irq_num, hall_irq_handler, 
+		ret = request_irq(priv->irq_num, hall_irq_handler,
 		IRQ_TYPE_LEVEL_LOW, HALL_DEV_NAME, NULL);
-	else 
-		ret = request_irq(priv->irq_num, hall_irq_handler, 
+	else
+		ret = request_irq(priv->irq_num, hall_irq_handler,
 		IRQ_TYPE_LEVEL_HIGH, HALL_DEV_NAME, NULL);
 
 	if (ret){
 		HALL_LOG(" request irq fail\n");
 		goto irq_err;
 	}
-	
+
 	enable_irq_wake(priv->irq_num);
-	
+
 	HALL_LOG("%s Exit\n", __func__);
 	return ret;
-	
+
 irq_err:
 	free_irq(priv->irq_num, HALL_DEV_NAME);
 gpio_err:
