@@ -136,11 +136,7 @@ static void mainboard_verify(void)
 			break;
 		case HW_VERSION__13:
 			mainboard_info.version = "13";
-            if (is_project(OPPO_13095)) {
-                mainboard_info.manufacture = "-1";
-            } else {
                 mainboard_info.manufacture = "SE";
-            }
 			break;
 		case HW_VERSION__14:
 			mainboard_info.version = "14";
