@@ -234,36 +234,10 @@ static int prjVersion_read_proc(char *page, char **start, off_t off,
 	int len;
 	operator_version = get_Operator_Version();
 
-    if(is_project(OPPO_14033)){
-	    if(operator_version == 3)
-		   len = sprintf(page,"%d",14035);
-		else
-		   len = sprintf(page,"%d",14033);
-    }
-	else if(is_project(OPPO_14013)){
 	    if(operator_version == 3)
 		   len = sprintf(page,"%d",14016);
 		else
 		   len = sprintf(page,"%d",14013);
-    }
-	else if(is_project(OPPO_14017)){
-	    if(operator_version == 3)
-		   len = sprintf(page,"%d",14018);
-		else
-		   len = sprintf(page,"%d",14017);
-    }
-	else if(is_project(OPPO_14029)){
-	    if(operator_version == 3)
-		   len = sprintf(page,"%d",14031);
-		else
-		   len = sprintf(page,"%d",14029);
-    }
-	else if(is_project(OPPO_13095)){
-	    if(operator_version == 3)
-		   len = sprintf(page,"%d",13084);
-		else
-		   len = sprintf(page,"%d",13095);
-    }
 	else
 	   len = sprintf(page,"%d",get_project());
 
