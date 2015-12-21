@@ -2958,6 +2958,19 @@ config USE_DEV_CTRL_VOLUME
 	help
 	  Use Device Control Volume as opposed to ALSA volume control.
 
+config OPPO_DEBUG_ASSERT
+	bool "config oppo debug assert"
+	default y
+	help
+	  This is the oppo debug assert function, open it will register the
+	  device, which under /dev/otracer.
+
+config OPPO_DEVICE_INFO
+	bool "config oppo device info"
+	default y
+	help
+	  This is the oppo device info show function, open it will enable the function.
+
 config MSM_CPU_PWRCTL
 	bool "Ensures that krait droop detectors are always off"
 	help
