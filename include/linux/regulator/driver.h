@@ -173,6 +173,18 @@ struct regulator_desc {
 	struct module *owner;
 };
 
+struct regulator_config {
+    struct device *dev;
+    const struct regulator_init_data *init_data;
+    void *driver_data;
+    struct device_node *of_node;
+    struct regmap *regmap;
+
+    int ena_gpio;
+    unsigned int ena_gpio_invert:1;
+    unsigned int ena_gpio_flags;
+};
+
 /*
  * struct regulator_dev
  *
