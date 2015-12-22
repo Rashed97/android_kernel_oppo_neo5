@@ -327,6 +327,10 @@ static void android_work(struct work_struct *data)
 	static enum android_device_state last_uevent, next_state;
 	unsigned long flags;
 	int pm_qos_vote = -1;
+/* OPPO 2013-12-06 wangjc Add begin for sovle some pc can't charge problem */
+	static bool connect_count = false;
+	struct usb_gadget	*gadget = cdev->gadget;
+/* OPPO 2013-12-06 wangjc Add end */
 
 	spin_lock_irqsave(&cdev->lock, flags);
 	if (dev->suspended != dev->sw_suspended && cdev->config) {
@@ -381,6 +385,17 @@ static void android_work(struct work_struct *data)
 					   uevent_envp);
 			last_uevent = next_state;
 		}
+/* OPPO 2013-12-06 wangjc Add begin for sovle some pc can't charge problem */
+		if(uevent_envp == connected) {
+			if(connect_count == false) {
+				connect_count = true;
+			}else {
+				connect_count = false;
+				
+				usb_gadget_vbus_draw(gadget, CONFIG_USB_GADGET_VBUS_DRAW);
+			}
+		}
+/* OPPO 2013-12-06 wangjc Add end */
 		pr_info("%s: sent uevent %s\n", __func__, uevent_envp[0]);
 	} else {
 		pr_info("%s: did not send uevent (%d %d %p)\n", __func__,
