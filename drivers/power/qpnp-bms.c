@@ -27,6 +27,9 @@
 #include <linux/qpnp/qpnp-adc.h>
 #include <linux/qpnp/power-on.h>
 #include <linux/of_batterydata.h>
+#include <mach/oppo_boot_mode.h>
+#include <mach/oppo_project.h>
+#include <linux/of_gpio.h>
 
 /* BMS Register Offsets */
 #define REVISION1			0x0
@@ -64,9 +67,9 @@
 #define BMS1_VSENSE_AVG_DATA0		0x98
 #define BMS1_VBAT_AVG_DATA0		0x9E
 /* Extra bms registers */
-#define SOC_STORAGE_REG			0xB0
+#define SOC_STORAGE_REG			0xB2
 #define IAVG_STORAGE_REG		0xB1
-#define BMS_FCC_COUNT			0xB2
+//#define BMS_FCC_COUNT			0xB2
 #define BMS_FCC_BASE_REG		0xB3 /* FCC updates - 0xB3 to 0xB7 */
 #define BMS_CHGCYL_BASE_REG		0xB8 /* FCC chgcyl - 0xB8 to 0xBC */
 #define CHARGE_INCREASE_STORAGE		0xBD
@@ -95,6 +98,11 @@
 
 #define QPNP_BMS_DEV_NAME "qcom,qpnp-bms"
 
+//Fanhong.Kong@ProDrv,2014.3.14 add for OTG
+extern struct smb358_charger *chip_smb358;
+extern bool is_chg_exist(void);
+extern int gFG_15_vlot;
+extern bool oppo_high_battery_status;
 enum {
 	SHDW_CC,
 	CC
@@ -148,6 +156,8 @@ struct qpnp_bms_chip {
 	u16				iadc_base;
 	u16				batt_pres_addr;
 	u16				soc_storage_addr;
+//Fanhong.Kong@ProDrv,2014.2.24 add for OTG
+	u16				vref_ctrl;
 
 	u8				revision1;
 	u8				revision2;
@@ -763,6 +773,24 @@ static int get_battery_status(struct qpnp_bms_chip *chip)
 	return POWER_SUPPLY_STATUS_UNKNOWN;
 }
 
+static int get_battery_temp_status(struct qpnp_bms_chip *chip)
+{
+	union power_supply_propval ret = {0,};
+
+	if (chip->batt_psy == NULL)
+		chip->batt_psy = power_supply_get_by_name("battery");
+	if (chip->batt_psy) {
+		/* if battery has been registered, use the status property */
+		chip->batt_psy->get_property(chip->batt_psy,
+					POWER_SUPPLY_PROP_TEMP_STATU, &ret);
+		return ret.intval;
+	}
+
+	/* Default to false if the battery power supply is not registered. */
+	pr_debug("battery power supply is not registered\n");
+	return SMB358_CHG_TEMP_NORMAL;
+}
+
 static bool is_battery_charging(struct qpnp_bms_chip *chip)
 {
 	return get_battery_status(chip) == POWER_SUPPLY_STATUS_CHARGING;
@@ -902,6 +930,7 @@ static int get_rbatt(struct qpnp_bms_chip *chip,
 		return rbatt_mohm;
 	}
 	/* Convert the batt_temp to DegC from deciDegC */
+	batt_temp = batt_temp / 10;
 	scalefactor = interpolate_scalingfactor(chip->rbatt_sf_lut,
 						batt_temp, soc_rbatt_mohm);
 	rbatt_mohm = (rbatt_mohm * scalefactor) / 100;
@@ -929,6 +958,12 @@ static int estimate_ocv(struct qpnp_bms_chip *chip, int batt_temp)
 	return ocv_est_uv;
 }
 
+
+struct qpnp_bms_chip *chip_bms;
+int get_estimate_ocv(int batt_temp)
+{	
+	return estimate_ocv(chip_bms,batt_temp);
+}
 static void reset_for_new_battery(struct qpnp_bms_chip *chip, int batt_temp)
 {
 	chip->last_ocv_uv = chip->insertion_ocv_uv;
@@ -1023,6 +1058,7 @@ static int read_soc_params_raw(struct qpnp_bms_chip *chip,
 				int batt_temp)
 {
 	int warm_reset, rc;
+	int last_ocv_uv_estimate = 0;
 
 	mutex_lock(&chip->bms_output_lock);
 
@@ -1057,6 +1093,17 @@ static int read_soc_params_raw(struct qpnp_bms_chip *chip,
 			reset_cc(chip, CLEAR_CC | CLEAR_SHDW_CC);
 			pr_debug("New PON_OCV_UV = %d, cc = %llx\n",
 					chip->last_ocv_uv, raw->cc);
+		}else if(is_chg_exist()) {
+			last_ocv_uv_estimate = estimate_ocv(chip, batt_temp);
+			if(last_ocv_uv_estimate < chip->last_ocv_uv)
+			{
+				chip->last_ocv_uv = last_ocv_uv_estimate;
+				pr_debug("OCV chg exist, estimating new OCV.\n");
+				raw->last_good_ocv_uv = chip->last_ocv_uv;
+				reset_cc(chip, CLEAR_CC | CLEAR_SHDW_CC);
+			}			
+			pr_err("New PON_OCV_UV = %d, last_ocv_uv_estimate = %d,cc = %llx\n",
+					chip->last_ocv_uv, last_ocv_uv_estimate,raw->cc);
 		}
 	} else if (chip->new_battery) {
 		/* if a new battery was inserted, estimate the ocv */
@@ -1869,7 +1916,7 @@ static int report_cc_based_soc(struct qpnp_bms_chip *chip)
 			chip->last_soc, chip->calculated_soc,
 			soc, time_since_last_change_sec);
 	chip->last_soc = bound_soc(soc);
-	backup_soc_and_iavg(chip, batt_temp, chip->last_soc);
+	//backup_soc_and_iavg(chip, batt_temp, chip->last_soc);
 	pr_debug("Reported SOC = %d\n", chip->last_soc);
 	chip->t_soc_queried = now;
 	mutex_unlock(&chip->last_soc_mutex);
@@ -3197,6 +3244,7 @@ static void charging_began(struct qpnp_bms_chip *chip)
 	mutex_unlock(&chip->last_ocv_uv_mutex);
 }
 
+extern int charging_smb358_temp_statu_for_bms;
 static void charging_ended(struct qpnp_bms_chip *chip)
 {
 	mutex_lock(&chip->last_soc_mutex);
@@ -3221,7 +3269,7 @@ static void charging_ended(struct qpnp_bms_chip *chip)
 			backup_charge_cycle(chip);
 	}
 
-	if (get_battery_status(chip) == POWER_SUPPLY_STATUS_FULL) {
+	if ((get_battery_status(chip) == POWER_SUPPLY_STATUS_FULL) && (get_battery_temp_status(chip) == SMB358_CHG_TEMP_NORMAL)) {
 		if (chip->enable_fcc_learning &&
 			(chip->start_soc <= chip->min_fcc_learning_soc) &&
 			(chip->start_pc <= chip->min_fcc_ocv_pc))
@@ -3594,6 +3642,17 @@ static int set_battery_data(struct qpnp_bms_chip *chip)
 		batt_data = &QRD_4v35_2000mAh_data;
 	} else if (chip->batt_type == BATT_QRD_4V2_1300MAH) {
 		batt_data = &qrd_4v2_1300mah_data;
+	} else if (chip->batt_type == BATT_OPPO_14033_14013_1394183_1900mAh) {
+		if(oppo_high_battery_status == 1)
+		{
+			batt_data = &OPPO_14033_14013_1394183_1900mAh_data;
+			pr_err("kongfanhong OPPO_14033_14013_1394183_1900mAh_data\n");
+		}
+		else
+		{
+			batt_data = &OPPO_14033_14013_nonstand_1700mAh_data;
+			pr_err("kongfanhong OPPO_14033_14013_nonstand_1700mAh_data\n");
+		}
 	} else {
 		battery_id = read_battery_id(chip);
 		if (battery_id < 0) {
@@ -3740,7 +3799,13 @@ static inline int bms_read_properties(struct qpnp_bms_chip *chip)
 {
 	int rc = 0;
 
+		if(get_PCB_Version() == HW_VERSION__10){
+			SPMI_PROP_READ(r_sense_uohm, "r-sense-20uohm", rc);
+			pr_err("bms_read_properties,20uohm\r\n");
+		}else{
 	SPMI_PROP_READ(r_sense_uohm, "r-sense-uohm", rc);
+			pr_err("bms_read_properties,10uohm\r\n");
+		}
 	SPMI_PROP_READ(v_cutoff_uv, "v-cutoff-uv", rc);
 	SPMI_PROP_READ(max_voltage_uv, "max-voltage-uv", rc);
 	SPMI_PROP_READ(r_conn_mohm, "r-conn-mohm", rc);
@@ -3924,6 +3989,12 @@ static int register_spmi(struct qpnp_bms_chip *chip, struct spmi_device *spmi)
 		} else if (strcmp("qcom,soc-storage-reg",
 					spmi_resource->of_node->name) == 0) {
 			chip->soc_storage_addr = resource->start;
+			continue;
+		}
+	//Fanhong.Kong@ProDrv,2014.2.24 add for THM
+		else if (strcmp("qcom,vref-ctrl",
+					spmi_resource->of_node->name) == 0) {
+			chip->vref_ctrl = resource->start;
 			continue;
 		}
 
@@ -4135,12 +4206,45 @@ static int setup_die_temp_monitoring(struct qpnp_bms_chip *chip)
 	return 0;
 }
 
+static int qpnp_bms_get_batt_therm(struct qpnp_bms_chip *chip)
+{
+	int rc,batt_temp = 300;
+	struct qpnp_vadc_result result;
+	rc = qpnp_vadc_read(chip->vadc_dev,LR_MUX1_BATT_THERM,&result);
+	if(rc)
+	{
+		pr_debug("Unable to read batt_temp\n");
+	}
+	else
+	{
+		batt_temp = (int)result.physical;
+	}
+	return batt_temp;
+}
+
+void qpnp_bms_backup_smb358_checkpoint(int checkpoint)
+{	
+	int batt_temp = 300;
+	batt_temp = qpnp_bms_get_batt_therm(chip_bms);
+	backup_soc_and_iavg(chip_bms,batt_temp,checkpoint);
+	//read_shutdown_soc(chip_bms);
+	pr_debug("qpnp_bms_backup_smb358_checkpoint,checkpoint = %d\n",checkpoint);
+}
+
 static int __devinit qpnp_bms_probe(struct spmi_device *spmi)
 {
 	struct qpnp_bms_chip *chip;
 	bool warm_reset;
 	int rc, vbatt;
+	int batt_temp;
+//Fanhong.Kong@ProDrv,2014.2.24 add for THM
+	u8 type,thm_vref_on = 0xc0;
 
+	if(!chip_smb358)
+	{
+		pr_err("chip_smb358 isn't ok,please wait\r\n");
+		return -EPROBE_DEFER;
+	}
 	chip = devm_kzalloc(&spmi->dev, sizeof(struct qpnp_bms_chip),
 			GFP_KERNEL);
 
@@ -4304,6 +4408,8 @@ static int __devinit qpnp_bms_probe(struct spmi_device *spmi)
 	}
 
 	chip->bms_psy_registered = true;
+	chip_bms = chip;
+	
 	vbatt = 0;
 	rc = get_battery_voltage(chip, &vbatt);
 	if (rc) {
@@ -4312,15 +4418,32 @@ static int __devinit qpnp_bms_probe(struct spmi_device *spmi)
 		goto unregister_dc;
 	}
 
+	batt_temp = qpnp_bms_get_batt_therm(chip);
+	gFG_15_vlot = find_ocv_for_pc(chip,batt_temp,15)/1000;
+
 	rc = bms_request_irqs(chip);
 	if (rc) {
 		pr_err("error requesting bms irqs, rc = %d\n", rc);
 		goto unregister_dc;
 	}
+	//Fanhong.Kong@ProDrv,2014.2.24 add for THM	
+	rc = qpnp_write_wrapper(chip, &thm_vref_on,chip->vref_ctrl, 1);
+	pr_debug("kongfanhong--------------qpnp_write_wrapper--addre = 0x%x,thm_vref_on = 0x%d\r\n",chip->vref_ctrl,thm_vref_on);
+	if (rc) {
+		pr_err("kongfanhong  Peripheral vref_ctrl write failed rc=%d\n", rc);
+		return rc;
+	}
 
-	pr_info("probe success: soc =%d vbatt = %d ocv = %d r_sense_uohm = %u warm_reset = %d\n",
+	rc = qpnp_read_wrapper(chip, &type,chip->vref_ctrl , 1);
+		pr_debug("kongfanhong--------------qpnp_read_wrapper--addre = 0x%x,type = 0x%x\r\n",chip->vref_ctrl,type);
+	if (rc) {
+		pr_err("kongfanhong Peripheral vref_ctrl read failed rc=%d\n", rc);
+		return rc;
+	}
+
+	pr_info("probe success: soc =%d vbatt = %d ocv = %d r_sense_uohm = %u warm_reset = %d,batt_temp = %d,gFG_15_vlot = %d\n",
 			get_prop_bms_capacity(chip), vbatt, chip->last_ocv_uv,
-			chip->r_sense_uohm, warm_reset);
+			chip->r_sense_uohm, warm_reset,batt_temp,gFG_15_vlot);
 	return 0;
 
 unregister_dc:
