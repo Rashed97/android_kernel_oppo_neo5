@@ -16,6 +16,8 @@
 #include <linux/delay.h>
 #include "mdss_io_util.h"
 
+//rendong.shi@BasiceDrv.LCD add 2014/03/26 for lcd 2.8v&1.8v never powerdown when suspend
+
 #define MAX_I2C_CMDS  16
 void dss_reg_w(struct dss_io_data *io, u32 offset, u32 value, u32 debug)
 {
@@ -202,8 +204,31 @@ vreg_get_fail:
 int msm_dss_enable_vreg(struct dss_vreg *in_vreg, int num_vreg, int enable)
 {
 	int i = 0, rc = 0;
+	static int vddio_enable_flag = 0;
+	static int vdd_enable_flag = 0;
 	if (enable) {
 		for (i = 0; i < num_vreg; i++) {
+
+		if(!strcmp(in_vreg[i].vreg_name,"vdd") )
+		{
+		   if( 0 == vdd_enable_flag ) {
+				pr_err("first  enable  for vddio\n");
+			    vdd_enable_flag = 1;
+		   } else
+		  {
+				pr_err("after enable ,never do second for vddio\n");
+				continue;
+		  }
+		}
+	    if( !strcmp(in_vreg[i].vreg_name,"vddio")) {
+				if( 0 == vddio_enable_flag ) {
+					pr_err("first  enable  for vddio\n");
+					vddio_enable_flag = 1;
+				} else {
+					pr_err("after enable ,never do second for vddio\n");
+					continue;
+				}
+			}
 			rc = PTR_RET(in_vreg[i].vreg);
 			if (rc) {
 				DEV_ERR("%pS->%s: %s regulator error. rc=%d\n",
@@ -233,6 +258,12 @@ int msm_dss_enable_vreg(struct dss_vreg *in_vreg, int num_vreg, int enable)
 		}
 	} else {
 		for (i = num_vreg-1; i >= 0; i--)
+	{
+	//rendong.shi@BasiceDrv.LCD add 2014/03/26 for lcd 2.8v&1.8v never powerdown when suspend
+			if(!strcmp(in_vreg[i].vreg_name,"vdd") || !strcmp(in_vreg[i].vreg_name,"vddio")) {
+					pr_err("after enable ,never powerdown vdd & vddio\n");
+					continue;
+				}
 			if (regulator_is_enabled(in_vreg[i].vreg)) {
 				if (in_vreg[i].pre_off_sleep)
 					msleep(in_vreg[i].pre_off_sleep);
@@ -242,6 +273,7 @@ int msm_dss_enable_vreg(struct dss_vreg *in_vreg, int num_vreg, int enable)
 				if (in_vreg[i].post_off_sleep)
 					msleep(in_vreg[i].post_off_sleep);
 			}
+		}
 	}
 	return rc;
 

@@ -53,6 +53,8 @@
 
 #include "mdss_fb.h"
 
+#include <mach/oppo_project.h>
+
 #ifdef CONFIG_FB_MSM_TRIPLE_BUFFER
 #define MDSS_FB_NUM 3
 #else
@@ -263,14 +265,33 @@ static ssize_t mdss_mdp_show_blank_event(struct device *dev,
 	return ret;
 }
 
+/* guoling Add for set lcdoff test */
+extern struct mdss_dsi_ctrl_pdata *panel_data;
+static ssize_t mdss_mdp_lcdoff_event(struct device *dev,		struct device_attribute *attr, char *buf){
+    struct fb_info *fbi = dev_get_drvdata(dev);
+    struct msm_fb_data_type *mfd = (struct msm_fb_data_type *)fbi->par;
+    pr_err("%s YXQ mfd=0x%p\n", __func__, mfd);
+    if (!mfd)
+        return -ENODEV;
+    return mdss_fb_send_panel_event(mfd, MDSS_EVENT_PANEL_OFF, NULL);
+}
+
 static DEVICE_ATTR(msm_fb_type, S_IRUGO, mdss_fb_get_type, NULL);
 static DEVICE_ATTR(msm_fb_split, S_IRUGO, mdss_fb_get_split, NULL);
 static DEVICE_ATTR(show_blank_event, S_IRUGO, mdss_mdp_show_blank_event, NULL);
+
+/* guoling Add for set lcdoff test */
+static DEVICE_ATTR(lcdoff, S_IRUGO, mdss_mdp_lcdoff_event, NULL);
 
 static struct attribute *mdss_fb_attrs[] = {
 	&dev_attr_msm_fb_type.attr,
 	&dev_attr_msm_fb_split.attr,
 	&dev_attr_show_blank_event.attr,
+/* caven.han Add for set cabc */
+	&dev_attr_cabc.attr,
+
+/* guoling Add for set lcdoff test */
+    &dev_attr_lcdoff.attr,
 	NULL,
 };
 
@@ -403,9 +424,20 @@ static int mdss_fb_probe(struct platform_device *pdev)
 	else
 		mfd->mdp_sync_pt_data.threshold = 2;
 
+#ifdef CONFIG_MACH_14013
+	{
+		if(get_Operator_Version() != 3)
+			memset(phys_to_virt(0x03200000 + 714*480*3), 0x00, 480*140*3);
+
+	}
+#else
+	{
+		if(get_Operator_Version() != 3)
+			memset(phys_to_virt(0x03200000 + 1080*720*3), 0x00, 200*720*3);
+	}
 	return rc;
 }
-
+#endif
 static int mdss_fb_remove(struct platform_device *pdev)
 {
 	struct msm_fb_data_type *mfd;
@@ -643,7 +675,7 @@ void mdss_fb_set_backlight(struct msm_fb_data_type *mfd, u32 bkl_lvl)
 		return;
 	} else {
 		mfd->unset_bl_level = 0;
-	}
+		}
 
 	pdata = dev_get_platdata(&mfd->pdev->dev);
 

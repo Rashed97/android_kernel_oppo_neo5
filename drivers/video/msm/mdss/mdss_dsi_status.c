@@ -24,13 +24,18 @@
 #include <linux/kobject.h>
 #include <linux/string.h>
 #include <linux/sysfs.h>
+#include <linux/switch.h>
 
 #include "mdss_fb.h"
 #include "mdss_dsi.h"
 #include "mdss_panel.h"
 #include "mdss_mdp.h"
 
-#define STATUS_CHECK_INTERVAL 5000
+#define STATUS_CHECK_INTERVAL 3000
+#include <mach/oppo_project.h>
+#include <linux/gpio.h>
+#include <linux/proc_fs.h>
+#include <mach/oppo_boot_mode.h>
 
 struct dsi_status_data {
 	struct notifier_block fb_notifier;
@@ -40,6 +45,75 @@ struct dsi_status_data {
 };
 struct dsi_status_data *pstatus_data;
 static uint32_t interval = STATUS_CHECK_INTERVAL;
+extern u32 mdss_dsi_panel_cmd_read(struct mdss_dsi_ctrl_pdata *ctrl, char cmd0,
+		char cmd1, void (*fxn)(int), char *rbuf, int len);
+
+#define LPTE_GPIO 13
+static int irq_panel;
+static int te_count=120;
+static int te_state = 0;
+static struct switch_dev display_switch;
+static irqreturn_t msm_esd_check(int irq,void *dev_id);
+static struct proc_dir_entry *prEntry_dispswitch = NULL;
+extern u32 mdss_dsi_panel_cmd_read(struct mdss_dsi_ctrl_pdata *ctrl, char cmd0,
+		char cmd1, void (*fxn)(int), char *rbuf, int len);
+static int timeout = 0;
+extern bool lcd_is_suspended;
+
+int operate_display_switch(void)
+{
+    int ret = 0;
+    pr_info("%s:state=%d.\n", __func__, te_state);
+
+    if(te_state)
+        te_state = 0;
+    else
+        te_state = 1;
+
+    switch_set_state(&display_switch, te_state);
+    return ret;
+}
+
+
+static int esd_check(void)
+{
+   if(timeout < 4)
+   {
+	  pr_err("not start esd !!!!!!!!\n");
+	  timeout ++;
+	  te_count = 0;
+	  return 0;
+	}
+
+	if(te_count < 60)
+	{
+	    pr_err("LCD recovery tecount:%s :te_count = %d\n",__func__,te_count);
+		return 2;
+	}
+	te_count = 0;
+	return 0;
+}
+
+static void esd_recover(void)
+{
+    pr_err(" lcd esd recover !!!!!!!!\n");
+    operate_display_switch();
+    te_count = 0;
+}
+
+
+static irqreturn_t msm_esd_check(int irq,void *dev_id)
+{
+	te_count++;
+	return IRQ_HANDLED;
+}
+
+static int lcd_eds_test_dispswitch(char *page, char **start, off_t off, int count, int *eof,  void *data)
+{
+    pr_err("ESD function test--------\n");
+    operate_display_switch();
+    return 0;
+}
 
 /*
  * check_dsi_ctrl_status() - Check DSI controller status periodically.
@@ -57,6 +131,13 @@ static void check_dsi_ctrl_status(struct work_struct *work)
 	struct mdss_overlay_private *mdp5_data = NULL;
 	struct mdss_mdp_ctl *ctl = NULL;
 	int ret = 0;
+	int read_ret = 0;
+	char buf[2]={0x00,0x00};
+
+	if(lcd_is_suspended == true)
+	{
+	   return;
+	}
 
 	pdsi_status = container_of(to_delayed_work(work),
 		struct dsi_status_data, check_status);
@@ -82,9 +163,13 @@ static void check_dsi_ctrl_status(struct work_struct *work)
 	mdp5_data = mfd_to_mdp5_data(pdsi_status->mfd);
 	ctl = mfd_to_ctl(pdsi_status->mfd);
 
+	if (pdsi_status->mfd->shutdown_pending) {
+		mutex_unlock(&mdp5_data->ov_lock);
 	if (ctl->shared_lock)
-		mutex_lock(ctl->shared_lock);
-	mutex_lock(&mdp5_data->ov_lock);
+		mutex_unlock(ctl->shared_lock);
+	pr_err("%s: DSI turning off, avoiding BTA status check\n",__func__);
+	return;
+	}
 
 	/*
 	 * For the command mode panels, we return pan display
@@ -96,31 +181,36 @@ static void check_dsi_ctrl_status(struct work_struct *work)
 	 * display reset not to be proper. Hence, wait for DMA_P done
 	 * for command mode panels before triggering BTA.
 	 */
-	if (ctl->wait_pingpong)
-		ctl->wait_pingpong(ctl, NULL);
 
 	pr_debug("%s: DSI ctrl wait for ping pong done\n", __func__);
 
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON, false);
-	ret = ctrl_pdata->check_status(ctrl_pdata);
+	if(lcd_is_suspended != true)
+			{
+
+					mdss_dsi_panel_cmd_read(ctrl_pdata,0x0a,0x00,NULL,buf,1);
+					mdss_dsi_panel_cmd_read(ctrl_pdata,0x09,0x00,NULL,&buf[1],1);
+
+					if(buf[0]!= 0x1c ||  buf[1]!= 0x80)
+					{
+					   read_ret = 1;
+					   pr_err("shirendong esd  read wrong  buf[0] = %x,buf[1]=%x\n",buf[0],buf[1]);
+					}
+			}
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF, false);
 
-	mutex_unlock(&mdp5_data->ov_lock);
-	if (ctl->shared_lock)
-		mutex_unlock(ctl->shared_lock);
-
+  if(lcd_is_suspended != true)
+   {
 	if ((pdsi_status->mfd->panel_power_on)) {
-		if (ret > 0) {
+		ret =  esd_check();
+			if(ret > 0 || read_ret > 0 )
+			   {
+				   esd_recover();
+			   }
+			   else {
 			schedule_delayed_work(&pdsi_status->check_status,
 				msecs_to_jiffies(pdsi_status->check_interval));
-		} else {
-			char *envp[2] = {"PANEL_ALIVE=0", NULL};
-			pdata->panel_info.panel_dead = true;
-			ret = kobject_uevent_env(
-				&pdsi_status->mfd->fbi->dev->kobj,
-							KOBJ_CHANGE, envp);
-			pr_err("%s: Panel has gone bad, sending uevent - %s\n",
-							__func__, envp[0]);
+		}
 		}
 	}
 }
@@ -156,12 +246,19 @@ static int fb_event_callback(struct notifier_block *self,
 			break;
 		}
 	}
+	te_count=120;
 	return 0;
 }
 
 int __init mdss_dsi_status_init(void)
 {
 	int rc = 0;
+	int boot_mode = 0;
+
+	boot_mode = get_boot_mode();
+
+	if(boot_mode != MSM_BOOT_MODE__NORMAL)
+	   return rc;
 
 	pstatus_data = kzalloc(sizeof(struct dsi_status_data), GFP_KERNEL);
 	if (!pstatus_data) {
@@ -177,6 +274,22 @@ int __init mdss_dsi_status_init(void)
 								__func__, rc);
 		kfree(pstatus_data);
 		return -EPERM;
+	}
+
+    display_switch.name = "dispswitch";
+	rc = switch_dev_register(&display_switch);
+    if (rc)
+    {
+        pr_err("Unable to register display switch device\n");
+        return rc;
+    }
+
+	prEntry_dispswitch = create_proc_entry( "lcd_esd_test", 0666, NULL );
+	if(prEntry_dispswitch == NULL){
+		rc = -ENOMEM;
+		printk(KERN_INFO"init_synaptics_proc: Couldn't create proc entry\n");
+	}else{
+		prEntry_dispswitch->read_proc = lcd_eds_test_dispswitch;
 	}
 
 	pstatus_data->check_interval = interval;

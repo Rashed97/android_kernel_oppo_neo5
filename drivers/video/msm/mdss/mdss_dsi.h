@@ -278,6 +278,10 @@ struct mdss_dsi_ctrl_pdata {
 
 	struct dsi_panel_cmds on_cmds;
 	struct dsi_panel_cmds off_cmds;
+	struct dsi_panel_cmds begin_on_cmds;
+	struct dsi_panel_cmds yellow_on_cmds;
+	struct dsi_panel_cmds normal_on_cmds;
+	struct dsi_panel_cmds balance_on_cmds;
 
 	struct dcs_cmd_list cmdlist;
 	struct completion dma_comp;

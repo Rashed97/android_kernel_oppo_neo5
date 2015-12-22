@@ -22,11 +22,57 @@
 #include <linux/pwm.h>
 #include <linux/err.h>
 
+//Caven.han Added for ESD_CHECK
+#include <linux/switch.h>
+#include <linux/proc_fs.h>
+//Added for device list
+#include <mach/device_info.h>
 #include "mdss_dsi.h"
+#include <mach/oppo_project.h>
 
 #define DT_CMD_HDR 6
 
 DEFINE_LED_TRIGGER(bl_led_trigger);
+extern void lm3630_control(int lcd_bl_level);
+extern void synaptics_14017_power_resume(void);
+#define LCD_JDI 0
+#define LCD_TRULY 1
+#define LCD_SHARP 2
+#define LCD_UNKNOW 3
+int lcd_dev=0;
+char lcd_flag_id = 0;
+enum {
+GAMMA_BALANCE=0,
+GAMMA_NORMAL,
+GAMMA_YELLOW,
+};
+//caven.han@basic.drv Added for ESD_CHECK
+ bool  lcd_is_suspended =false;
+//CABC function://caven.han apply
+struct dsi_panel_cmds cabc_off_sequence;
+struct dsi_panel_cmds cabc_user_interface_image_sequence;
+struct dsi_panel_cmds cabc_still_image_sequence;
+struct dsi_panel_cmds cabc_video_image_sequence;
+
+#define DSI_BUF_SIZE	1024
+
+static struct mdss_dsi_ctrl_pdata *panel_data;
+static void mdss_dsi_panel_cmds_send(struct mdss_dsi_ctrl_pdata *ctrl,
+			struct dsi_panel_cmds *pcmds);
+
+extern int set_backlight_pwm(int state);
+
+enum
+{
+    CABC_CLOSE = 0,
+    CABC_LOW_MODE,
+    CABC_MIDDLE_MODE,
+    CABC_HIGH_MODE,
+};
+
+int cabc_mode = CABC_HIGH_MODE; //defaoult mode level 3 in dtsi file
+
+static DEFINE_MUTEX(cabc_mutex);
 
 void mdss_dsi_panel_pwm_cfg(struct mdss_dsi_ctrl_pdata *ctrl)
 {
@@ -321,9 +367,11 @@ static int mdss_dsi_panel_on(struct mdss_panel_data *pdata)
 
 	pr_debug("%s: ctrl=%p ndx=%d\n", __func__, ctrl, ctrl->ndx);
 
-	if (ctrl->on_cmds.cmd_cnt)
+	if (ctrl->on_cmds.cmd_cnt){
 		mdss_dsi_panel_cmds_send(ctrl, &ctrl->on_cmds);
+	}
 
+	lcd_is_suspended = false;
 	pr_debug("%s:-\n", __func__);
 	return 0;
 }
@@ -338,13 +386,14 @@ static int mdss_dsi_panel_off(struct mdss_panel_data *pdata)
 		return -EINVAL;
 	}
 
+	//Added by hantong to declear lcd suspended
+	lcd_is_suspended = true;
 	ctrl = container_of(pdata, struct mdss_dsi_ctrl_pdata,
 				panel_data);
 
 	pr_debug("%s: ctrl=%p ndx=%d\n", __func__, ctrl, ctrl->ndx);
 
 	mipi  = &pdata->panel_info.mipi;
-
 	if (ctrl->off_cmds.cmd_cnt)
 		mdss_dsi_panel_cmds_send(ctrl, &ctrl->off_cmds);
 
@@ -935,8 +984,13 @@ static int mdss_panel_parse_dt(struct device_node *np,
 
 	mdss_panel_parse_te_params(np, pinfo);
 
+/* OPPO 2014-05-28 yxq add end */
 	mdss_dsi_parse_dcs_cmds(np, &ctrl_pdata->on_cmds,
 		"qcom,mdss-dsi-on-command", "qcom,mdss-dsi-on-command-state");
+	if(lcd_flag_id == 1 ){
+        mdss_dsi_parse_dcs_cmds(np, &ctrl_pdata->begin_on_cmds,
+			"qcom,mdss-dsi-on-command-first", "qcom,mdss-dsi-on-command-state");
+	}
 
 	mdss_dsi_parse_dcs_cmds(np, &ctrl_pdata->off_cmds,
 		"qcom,mdss-dsi-off-command", "qcom,mdss-dsi-off-command-state");
@@ -961,6 +1015,9 @@ int mdss_dsi_panel_init(struct device_node *node,
 		return -ENODEV;
 	}
 
+	//caven.han added for cabc
+	panel_data = ctrl_pdata;
+
 	pr_debug("%s:%d\n", __func__, __LINE__);
 	panel_name = of_get_property(node, "qcom,mdss-dsi-panel-name", NULL);
 	if (!panel_name)
@@ -968,6 +1025,14 @@ int mdss_dsi_panel_init(struct device_node *node,
 						__func__, __LINE__);
 	else
 		pr_info("%s: Panel Name = %s\n", __func__, panel_name);
+
+	if(!strcmp(panel_name,"oppo14013tm fwvga video mode dsi panel"))
+		register_device_proc("lcd", "HX8389", "Tianma");
+	else if(!strcmp(panel_name,"oppo14013truly fwvga video mode dsi panel"))
+		register_device_proc("lcd", "HX8389", "Truly");
+	else
+		register_device_proc("lcd", "UNKNOWN", "UNKNOWN");
+
 
 	rc = mdss_panel_parse_dt(node, ctrl_pdata);
 	if (rc) {
