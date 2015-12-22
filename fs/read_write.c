@@ -4,7 +4,7 @@
  *  Copyright (C) 1991, 1992  Linus Torvalds
  */
 
-#include <linux/slab.h> 
+#include <linux/slab.h>
 #include <linux/stat.h>
 #include <linux/fcntl.h>
 #include <linux/file.h>
@@ -19,6 +19,18 @@
 
 #include <asm/uaccess.h>
 #include <asm/unistd.h>
+
+//Lycan.Wang@Prd.BasicDrv, 2014-04-15 Add for data and sdcard partition use different size
+#include "mount.h"
+#include <linux/statfs.h>
+#include <linux/mount.h>
+#include <linux/mmc/mmc.h>
+
+#define CHECK_1TH  (10 * 1024 * 1024)
+#define CHECK_2TH  (1 * 1024 * 1024)
+//TODO same with the macro in inode.c
+#define DATA_FREE_SIZE_TH (50 * 1024 * 1024)
+
 
 const struct file_operations generic_ro_fops = {
 	.llseek		= generic_file_llseek,
@@ -420,6 +432,42 @@ EXPORT_SYMBOL(do_sync_write);
 ssize_t vfs_write(struct file *file, const char __user *buf, size_t count, loff_t *pos)
 {
 	ssize_t ret;
+	//Lycan.Wang@Prd.BasicDrv, 2014-04-15 Add for data and sdcard partition use different size
+	struct kstatfs stat;
+	struct mount *mount_data;
+	static long long store = 0;
+
+	mount_data = real_mount(file->f_path.mnt);
+	if (!memcmp(mount_data->mnt_mountpoint->d_name.name, "data", 5)) {
+		store -= count;
+		if (store  <= CHECK_1TH) {
+			vfs_statfs(&file->f_path, &stat);
+			store = stat.f_bfree * stat.f_bsize;
+			//printk(KERN_ERR "write data detect store: %llx\n", store);
+			if (store <= CHECK_2TH) {
+				//printk(KERN_ERR "no space store:%llx CHECK_2TH:%x\n", store, CHECK_2TH);
+				store += count;
+				return -ENOSPC;
+			}
+		}
+	}
+
+	if(!memcmp(file->f_path.mnt->mnt_sb->s_type->name, "fuse", 5)){
+		store -= count;
+		if(store <= (DATA_FREE_SIZE_TH  + CHECK_1TH * 2)){
+			vfs_statfs(&file->f_path, &stat);
+			store = stat.f_bfree * stat.f_bsize + DATA_FREE_SIZE_TH;
+			store -= count;
+			//printk(KERN_EMERG "initialize data free size when acess sdcard0 ,%llx\n",store);
+
+			if (store <= DATA_FREE_SIZE_TH) {
+				//printk(KERN_EMERG "wite sdcard0 over flow, %llx\n",store);
+				store += count;
+				return -ENOSPC;
+			}
+		}
+		store +=count;
+	}
 
 	if (!(file->f_mode & FMODE_WRITE))
 		return -EBADF;
@@ -534,7 +582,7 @@ SYSCALL_DEFINE(pwrite64)(unsigned int fd, const char __user *buf,
 	file = fget_light(fd, &fput_needed);
 	if (file) {
 		ret = -ESPIPE;
-		if (file->f_mode & FMODE_PWRITE)  
+		if (file->f_mode & FMODE_PWRITE)
 			ret = vfs_write(file, buf, count, &pos);
 		fput_light(file, fput_needed);
 	}

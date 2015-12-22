@@ -21,6 +21,10 @@
 #include <linux/sched.h>
 #include <linux/exportfs.h>
 
+//Lycan.Wang@Prd.BasicDrv, 2014-04-15 Add for data and sdcard partition use different size
+//TODO same with the macro in read_write.c
+#define DATA_FREE_SIZE_TH (50 * 1024 * 1024)
+
 MODULE_AUTHOR("Miklos Szeredi <miklos@szeredi.hu>");
 MODULE_DESCRIPTION("Filesystem in Userspace");
 MODULE_LICENSE("GPL");
@@ -359,6 +363,21 @@ static void convert_fuse_statfs(struct kstatfs *stbuf, struct fuse_kstatfs *attr
 	stbuf->f_files   = attr->files;
 	stbuf->f_ffree   = attr->ffree;
 	stbuf->f_namelen = attr->namelen;
+
+	//Lycan.Wang@Prd.BasicDrv, 2014-04-15 Add for data and sdcard partition use different size
+	stbuf->f_blocks  -= (u32)DATA_FREE_SIZE_TH/attr->bsize;
+	
+	if(stbuf->f_bfree < ((u32)DATA_FREE_SIZE_TH/attr->bsize)) {
+		stbuf->f_bfree = 0;
+	} else {
+		stbuf->f_bfree -= (u32)DATA_FREE_SIZE_TH/attr->bsize;
+	}
+
+	if(stbuf->f_bavail < ((u32)DATA_FREE_SIZE_TH/attr->bsize)) {
+		stbuf->f_bavail = 0;
+	} else {
+		stbuf->f_bavail	-= (u32)DATA_FREE_SIZE_TH/attr->bsize;
+	}
 	/* fsid is left zero */
 }
 

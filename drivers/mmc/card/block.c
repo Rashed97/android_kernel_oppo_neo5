@@ -46,6 +46,10 @@
 
 #include "queue.h"
 
+//Zhilong.Zhang@OnlineRd.Driver, 2013/10/24, Add for eMMC and DDR device information
+#include <mach/device_info.h>
+#include <linux/pcb_version.h>
+
 MODULE_ALIAS("mmc:block");
 #ifdef MODULE_PARAM_PREFIX
 #undef MODULE_PARAM_PREFIX
@@ -3116,12 +3120,40 @@ static int mmc_blk_probe(struct mmc_card *card)
 {
 	struct mmc_blk_data *md, *part_md;
 	char cap_str[10];
+	//Zhilong.Zhang@OnlineRd.Driver, 2013/10/24, Add for eMMC and DDR device information
+	char * manufacturerid;
+	/*struct manufacture_info ddr_info_1 = {
+		.version = "EDFA164A2PB",
+		.manufacture = "ELPIDA",
+	};
+	struct manufacture_info ddr_info_2 = {
+		.version = "K3QF7F70DM",
+		.manufacture = "SAMSUNG",
+	};*/
 
 	/*
 	 * Check that the card supports the command class(es) we need.
 	 */
 	if (!(card->csd.cmdclass & CCC_BLOCK_READ))
 		return -ENODEV;
+	//Zhilong.Zhang@OnlineRd.Driver, 2013/10/24, Add for eMMC and DDR device information
+	switch (card->cid.manfid) {
+		case  0x11:
+			manufacturerid = "TOSHIBA";
+			break;
+		case  0x15:
+			manufacturerid = "SAMSUNG";
+			break;
+		case  0x45:
+			manufacturerid = "SANDISK";
+			break;
+		default:
+			manufacturerid = "unknown";
+			break;
+	}
+	if (!strcmp(mmc_card_id(card), "mmc0:0001")) {
+		register_device_proc("emmc", mmc_card_name(card), manufacturerid);
+	}
 
 	md = mmc_blk_alloc(card);
 	if (IS_ERR(md))
