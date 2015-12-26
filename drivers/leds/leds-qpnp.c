@@ -882,20 +882,19 @@ static int qpnp_flash_regulator_operate(struct qpnp_led_data *led, bool on)
 regulator_turn_off:
 	if (regulator_on && led->flash_cfg->flash_on) {
 		for (i = 0; i < led->num_leds; i++) {
-				rc = qpnp_led_masked_write(led,
+			rc = qpnp_led_masked_write(led,
 					FLASH_ENABLE_CONTROL(led->base),
 					FLASH_ENABLE_MASK,
 					FLASH_DISABLE_ALL);
-				if (rc) {
-					dev_err(&led->spmi_dev->dev,
+			if (rc) {
+				dev_err(&led->spmi_dev->dev,
 						"Enable reg write failed(%d)\n",
 						rc);
-					return rc;
-				}
-
-				qpnp_flash_reg_en(led,false);
-				led->flash_cfg->flash_on = false;
+				return rc;
 			}
+
+			qpnp_flash_reg_en(led,false);
+			led->flash_cfg->flash_on = false;
 		}
 	}
 
