@@ -2945,17 +2945,15 @@ static void update_smb358_thread(struct work_struct *work)
 				struct smb358_charger, update_smb358_thread_work);
 
 	smb358_get_prop_batt_capacity(chip);
-	#ifdef OPPO_BATTERY_ENCRPTION
-	if((chip->chg_present)
-	{
+#ifdef OPPO_BATTERY_ENCRPTION
+	if (chip->chg_present) {
 		oppo_battery_status_check();
-		if(!oppo_high_battery_status)
-		{
+		if (!oppo_high_battery_status) {
 			 smb358_float_voltage_set(chip, chip->non_standard_vfloat_mv);
 			 chip->fastchg_current_ma = chip->non_standard_fastchg_current_ma;
 		}
 	}
-	#endif
+#endif
 	smb358_vendor_print_log(chip);
 	smb358_chg_complete_check(chip);
 	power_supply_changed(&chip->batt_psy);
