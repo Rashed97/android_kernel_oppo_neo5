@@ -52,7 +52,6 @@ extern u32 mdss_dsi_panel_cmd_read(struct mdss_dsi_ctrl_pdata *ctrl, char cmd0,
 static int te_count=120;
 static int te_state = 0;
 static struct switch_dev display_switch;
-static irqreturn_t msm_esd_check(int irq,void *dev_id);
 static struct proc_dir_entry *prEntry_dispswitch = NULL;
 extern u32 mdss_dsi_panel_cmd_read(struct mdss_dsi_ctrl_pdata *ctrl, char cmd0,
 		char cmd1, void (*fxn)(int), char *rbuf, int len);
@@ -100,12 +99,6 @@ static void esd_recover(void)
     te_count = 0;
 }
 
-
-static irqreturn_t msm_esd_check(int irq,void *dev_id)
-{
-	te_count++;
-	return IRQ_HANDLED;
-}
 
 static int lcd_eds_test_dispswitch(char *page, char **start, off_t off, int count, int *eof,  void *data)
 {
