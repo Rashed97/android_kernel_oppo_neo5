@@ -1647,7 +1647,6 @@ static ssize_t tp_delta_store(struct device_driver *ddri,
 static ssize_t synaptics_rmi4_baseline_show_14017(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
-	ssize_t num_read_chars = 0;
 #if TP_TEST_ENABLE
     int ret = 0;
 	uint8_t x,y;
