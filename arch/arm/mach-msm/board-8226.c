@@ -256,7 +256,6 @@ void __init msm8226_init(void)
 	board_dt_populate(adata);
 	msm8226_add_drivers();
 	init_project_version();
-    init_lcd_gamaflag();
 	systeminfo_kobj = kobject_create_and_add("systeminfo", NULL);
 	if (systeminfo_kobj)
 		rc = sysfs_create_group(systeminfo_kobj, &attr_group);
