@@ -52,6 +52,101 @@
 #include "spm.h"
 #include "pm.h"
 #include "modem_notifier.h"
+#include <mach/oppo_project.h>
+#include <mach/oppo_boot_mode.h>
+#include <linux/persistent_ram.h>
+
+static struct kobject *systeminfo_kobj;
+
+static int ftm_mode = MSM_BOOT_MODE__NORMAL;
+
+static int __init  board_mfg_mode_init(void)
+{
+    char *substr;
+
+    substr = strstr(boot_command_line, "oppo_ftm_mode=");
+    if(substr) {
+        substr += strlen("oppo_ftm_mode=");
+
+        if(strncmp(substr, "ftmwifi", 5) == 0)
+            ftm_mode = MSM_BOOT_MODE__WLAN;
+        else if(strncmp(substr, "ftmrf", 5) == 0)
+            ftm_mode = MSM_BOOT_MODE__RF;
+        else if(strncmp(substr, "ftmrecovery", 5) == 0)
+            ftm_mode = MSM_BOOT_MODE__RECOVERY;
+    }
+
+	pr_err("board_mfg_mode_init, " "ftm_mode=%d\n", ftm_mode);
+
+	return 0;
+
+}
+
+int get_boot_mode(void)
+{
+	return ftm_mode;
+}
+
+static ssize_t ftmmode_show(struct kobject *kobj, struct kobj_attribute *attr,
+			     char *buf)
+{
+	return sprintf(buf, "%d\n", ftm_mode);
+}
+
+static struct kobj_attribute ftmmode_attr = {
+    .attr = {"ftmmode", 0644},
+
+    .show = &ftmmode_show,
+};
+
+static struct attribute * g[] = {
+	&ftmmode_attr.attr,
+	NULL,
+};
+
+static struct attribute_group attr_group = {
+	.attrs = g,
+};
+
+/* OPPO 2013-09-03 zhanglong add for add interface start reason and boot_mode begin */
+char pwron_event[16];
+static int __init start_reason_init(void)
+{
+    int i;
+    char * substr = strstr(boot_command_line, "androidboot.startupmode=");
+	if(substr) {
+	    substr += strlen("androidboot.startupmode=");
+	    for(i=0; substr[i] != ' '; i++) {
+	        pwron_event[i] = substr[i];
+	    }
+	    pwron_event[i] = '\0';
+	}
+    printk(KERN_INFO "%s: parse poweron reason %s\n", __func__, pwron_event);
+
+    return 1;
+}
+
+char boot_mode[16];
+static int __init boot_mode_init(void)
+{
+    int i;
+    char *substr = strstr(boot_command_line, "androidboot.mode=");
+	 if(substr) {
+    substr += strlen("androidboot.mode=");
+    for(i=0; substr[i] != ' '; i++) {
+        boot_mode[i] = substr[i];
+    }
+    boot_mode[i] = '\0';
+
+	if(ftm_mode == MSM_BOOT_MODE__NORMAL){
+	 	if(strncmp(substr, "charger", 7) == 0)
+            ftm_mode = MSM_BOOT_MODE__CHARGE;
+		}
+	}
+    printk(KERN_INFO "%s: parse boot_mode is %s\n", __func__, boot_mode);
+    return 1;
+}
+/* OPPO 2013-09-03 zhanglong add for add interface start reason and boot_mode end */
 
 static struct memtype_reserve msm8226_reserve_table[] __initdata = {
 	[MEMTYPE_SMI] = {
@@ -92,10 +187,26 @@ static struct reserve_info msm8226_reserve_info __initdata = {
 	.paddr_to_memtype = msm8226_paddr_to_memtype,
 };
 
+//Lycan.Wang@Prd.BasicDrv, 2014-02-08 Add for ram_console device (porting from find7)
+static struct persistent_ram_descriptor msm_prd[] __initdata = {
+    {
+        .name = "ram_console",
+        .size = SZ_1M,
+    },
+};
+
+static struct persistent_ram msm_pr __initdata = {
+    .descs = msm_prd,
+    .num_descs = ARRAY_SIZE(msm_prd),
+    .start = PLAT_PHYS_OFFSET + SZ_1G - SZ_1M,
+    .size = SZ_1M,
+};
 static void __init msm8226_early_memory(void)
 {
 	reserve_info = &msm8226_reserve_info;
 	of_scan_flat_dt(dt_scan_for_memory_hole, msm8226_reserve_table);
+    //Lycan.Wang@Prd.BasicDrv, 2014-02-08 Add for ram_console device (porting from find7)
+    persistent_ram_early_init(&msm_pr);
 }
 
 static void __init msm8226_reserve(void)
@@ -132,13 +243,25 @@ void __init msm8226_add_drivers(void)
 void __init msm8226_init(void)
 {
 	struct of_dev_auxdata *adata = msm8226_auxdata_lookup;
+	int rc = 0;
 
 	if (socinfo_init() < 0)
 		pr_err("%s: socinfo_init() failed\n", __func__);
+	board_mfg_mode_init();
+
+    /* OPPO 2013-09-03 zhanglong add for add interface start reason and boot_mode begin */
+    start_reason_init();
+    boot_mode_init();
+    /* OPPO 2013-09-03 zhanglong add for add interface start reason and boot_mode end */
 
 	msm8226_init_gpiomux();
 	board_dt_populate(adata);
 	msm8226_add_drivers();
+	init_project_version();
+    init_lcd_gamaflag();
+	systeminfo_kobj = kobject_create_and_add("systeminfo", NULL);
+	if (systeminfo_kobj)
+		rc = sysfs_create_group(systeminfo_kobj, &attr_group);
 }
 
 static const char *msm8226_dt_match[] __initconst = {
