@@ -3303,15 +3303,7 @@ static int smb358_charger_probe(struct i2c_client *client,
 
 	dump_regs(chip);
 
-	if((get_boot_mode() == MSM_BOOT_MODE__RF) || (get_boot_mode() == MSM_BOOT_MODE__WLAN))
-	{
-		chip->multiple_test = 1;
-		rc = smb358_masked_write(chip, CMD_A_REG, CMD_A_CHG_SUSP_EN_MASK, CMD_A_CHG_SUSP_EN_BIT);
-	}
-	else
-	{
 		chip->multiple_test = 0;
-	}	
 	#ifdef OPPO_BATTERY_ENCRPTION
 	rc = device_create_file((chip->dev), &dev_attr_ID_status);
 

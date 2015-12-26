@@ -2823,27 +2823,6 @@ static int synaptics_ts_probe(
 	ret = tpd_power(ts,1);
 	if (ret<0)
 		TPD_ERR("regulator_enable is called\n");
-	if((boot_mode == MSM_BOOT_MODE__FACTORY ||  boot_mode == MSM_BOOT_MODE__RF || boot_mode == MSM_BOOT_MODE__WLAN) ) {
-		TPD_ERR("regulator_disable is called\n");
-		if( ts->reset_gpio > 0 )
-		{
-			TPD_ERR("synaptics:enable the reset_gpio\n");
-			gpio_direction_output(ts->reset_gpio, 0);
-			msleep(5);
-		}
-		rc = regulator_disable(ts_g->vdd_2v8);
-		if (rc) {
-			TPD_ERR("regulator_disable failed\n");
-		}
-		msleep(5);
-		rc = regulator_disable(ts_g->vdd_2v8);
-		if (rc) {
-			TPD_ERR("regulator_disable failed\n");
-		}
-
-		TPD_ERR("synaptics :Not normal boot and return\n");
-		return 0;
-    }
 /******power_end*********/
 		get_tp_id(ts->id1_gpio,ts->id2_gpio,ts->id3_gpio);
 
