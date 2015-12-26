@@ -1713,15 +1713,6 @@ static ssize_t synaptics_rmi4_baseline_show_14017(struct device *dev,
 			baseline_data = (tmp_h<<8)|tmp_l;
 			printk("%d,",baseline_data);
 
-			if((y < (RX_NUM-3))&&(x!=TX_NUM-1)) {
-			//	pr_err("%d,",baseline_data);
-				}
-			}
-			if(TP_14017_old!=1){
-				if((x==TX_NUM-1)&&(y>RX_NUM-4)){
-					}
-				}
-			}
 			count++;
 		}
 		printk("\n");
