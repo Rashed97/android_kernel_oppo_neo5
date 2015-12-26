@@ -17,6 +17,8 @@ static unsigned int lcd_gamaflag = 0;
 
 int __init  init_lcd_gamaflag(void)
 {
+    char *substr;
+	char buf[32] = {0};
 	return 0;
 }
 
