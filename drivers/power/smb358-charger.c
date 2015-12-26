@@ -2943,7 +2943,7 @@ static void update_smb358_thread(struct work_struct *work)
 	struct delayed_work *dwork = to_delayed_work(work);
 	struct smb358_charger *chip = container_of(dwork,
 				struct smb358_charger, update_smb358_thread_work);
-				
+
 	smb358_get_prop_batt_capacity(chip);
 	#ifdef OPPO_BATTERY_ENCRPTION
 	if((chip->chg_present)
@@ -2959,7 +2959,7 @@ static void update_smb358_thread(struct work_struct *work)
 	smb358_vendor_print_log(chip);
 	smb358_chg_complete_check(chip);
 	power_supply_changed(&chip->batt_psy);
-	
+
 	/*update time 5s*/
 	schedule_delayed_work(&chip->update_smb358_thread_work,
 			      round_jiffies_relative(msecs_to_jiffies
