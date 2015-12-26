@@ -66,14 +66,16 @@ unsigned char get_Operator_Version(void)
 static int prjVersion_read_proc(char *page, char **start, off_t off,
 			   int count, int *eof, void *data)
 {
-    unsigned char operator_version;
+	unsigned char operator_version;
 	int len;
 	operator_version = get_Operator_Version();
 
-	    if(operator_version == 3)
-		   len = sprintf(page,"%d",14016);
-		else
-		   len = sprintf(page,"%d",14013);
+	BUG_ON(!is_project(OPPO_14013));
+
+	if (operator_version == 3)
+		len = sprintf(page,"%d",14016);
+	else
+		len = sprintf(page,"%d",14013);
 
 	if (len <= off+count)
 		*eof = 1;
