@@ -32,8 +32,6 @@
 #include <linux/of_gpio.h>
 #include <linux/mutex.h>
 #include <linux/qpnp/qpnp-adc.h>
-#include <mach/oppo_boot_mode.h>
-
 
 
 extern bool oppo_high_battery_status;
@@ -88,7 +86,6 @@ int Gpio_BatId_Init(void)
 	if(gpio_is_valid(BQ2202A_GPIO))
 	{
 		rc = gpio_request(BQ2202A_GPIO,"batid_bq2202a");
-		//pr_err("Gpio_BatId_Init,gpio_request batid_bq2202a\r\n");
 		if(rc)
 		{
 			pr_err("unable to request gpio batid_bq2202a\r\n");
@@ -146,14 +143,6 @@ static unsigned char TestPresence(void)
     while ((PresenceTimer > 0) && (GotPulse == 0))
     {
         InputData = gpio_get_value(BQ2202A_GPIO);       //Monitor logic state of GPIO
-		/*int j = 0;
-		while(j < 10)
-		{
-			printk("mt_get_gpio_in---------------InputData = %d\r\n", InputData);
-			j++;
-			wait_us(100);
-
-		}*/
         if (InputData == 0)                                             //If GPIO is Low,
         {
             GotPulse = 1;                                               //it means that device responded
@@ -183,8 +172,6 @@ static void WriteOneBit(unsigned char OneZero)
 	gpio_direction_output(BQ2202A_GPIO, GPIO_DIR_OUT_1);			//Set GPIO P9.3 as Output
     //mt_set_gpio_out(BQ2202A_GPIO, 1);		            //Set High
      gpio_direction_output(BQ2202A_GPIO, GPIO_DIR_OUT_0);	                //Set Low
-
-     //printk("WriteOneBit----1------OneZero = %d\t\n", OneZero);
     if (OneZero != 0x00)
     {
         wait_us(7);									//approximately 7us	for a Bit 1

@@ -29,7 +29,6 @@
 #include <linux/of_gpio.h>
 #include <linux/mutex.h>
 #include <linux/qpnp/qpnp-adc.h>
-#include <mach/oppo_boot_mode.h>
 #include <mach/oppo_project.h>
 #include <linux/power/bq2202a.h>
 
@@ -3318,7 +3317,7 @@ static int smb358_charger_probe(struct i2c_client *client,
 	
 	chip_smb358 = chip;
 	dev_err(chip->dev, "SMB358 successfully probed. charger=%d, batt=%d, mode = %d,rc = %d\n",
-			chip->chg_present, smb358_get_prop_batt_present(chip), get_boot_mode(),rc);
+			chip->chg_present, smb358_get_prop_batt_present(chip),rc);
 	return 0;
 
 err_set_vtg_i2c:

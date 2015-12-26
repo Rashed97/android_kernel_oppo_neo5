@@ -27,7 +27,6 @@
 #include <linux/qpnp/qpnp-adc.h>
 #include <linux/qpnp/power-on.h>
 #include <linux/of_batterydata.h>
-#include <mach/oppo_boot_mode.h>
 #include <mach/oppo_project.h>
 #include <linux/of_gpio.h>
 
