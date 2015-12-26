@@ -3314,7 +3314,7 @@ static int smb358_charger_probe(struct i2c_client *client,
 	#endif
 	
 	chip_smb358 = chip;
-	dev_err(chip->dev, "SMB358 successfully probed. charger=%d, batt=%d, mode = %d,rc = %d\n",
+	dev_err(chip->dev, "SMB358 successfully probed. charger=%d, batt=%d, rc = %d\n",
 			chip->chg_present, smb358_get_prop_batt_present(chip),rc);
 	return 0;
 
