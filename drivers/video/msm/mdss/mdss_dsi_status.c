@@ -49,7 +49,6 @@ extern u32 mdss_dsi_panel_cmd_read(struct mdss_dsi_ctrl_pdata *ctrl, char cmd0,
 		char cmd1, void (*fxn)(int), char *rbuf, int len);
 
 #define LPTE_GPIO 13
-static int irq_panel;
 static int te_count=120;
 static int te_state = 0;
 static struct switch_dev display_switch;
