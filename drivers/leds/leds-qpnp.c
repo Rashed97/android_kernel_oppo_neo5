@@ -890,12 +890,12 @@ regulator_turn_off:
 					dev_err(&led->spmi_dev->dev,
 						"Enable reg write failed(%d)\n",
 						rc);
+					return rc;
 				}
 
 				qpnp_flash_reg_en(led,false);
 				led->flash_cfg->flash_on = false;
 			}
-			break;
 		}
 	}
 
