@@ -70,8 +70,6 @@ static int __init  board_mfg_mode_init(void)
 
         if(strncmp(substr, "ftmwifi", 5) == 0)
             ftm_mode = MSM_BOOT_MODE__WLAN;
-        else if(strncmp(substr, "ftmrf", 5) == 0)
-            ftm_mode = MSM_BOOT_MODE__RF;
         else if(strncmp(substr, "ftmrecovery", 5) == 0)
             ftm_mode = MSM_BOOT_MODE__RECOVERY;
     }
