@@ -101,7 +101,6 @@
 extern struct smb358_charger *chip_smb358;
 extern bool is_chg_exist(void);
 extern int gFG_15_vlot;
-extern bool oppo_high_battery_status;
 enum {
 	SHDW_CC,
 	CC
@@ -3642,16 +3641,7 @@ static int set_battery_data(struct qpnp_bms_chip *chip)
 	} else if (chip->batt_type == BATT_QRD_4V2_1300MAH) {
 		batt_data = &qrd_4v2_1300mah_data;
 	} else if (chip->batt_type == BATT_OPPO_14033_14013_1394183_1900mAh) {
-		if(oppo_high_battery_status == 1)
-		{
-			batt_data = &OPPO_14033_14013_1394183_1900mAh_data;
-			pr_err("kongfanhong OPPO_14033_14013_1394183_1900mAh_data\n");
-		}
-		else
-		{
-			batt_data = &OPPO_14033_14013_nonstand_1700mAh_data;
-			pr_err("kongfanhong OPPO_14033_14013_nonstand_1700mAh_data\n");
-		}
+		batt_data = &OPPO_14033_14013_1394183_1900mAh_data;
 	} else {
 		battery_id = read_battery_id(chip);
 		if (battery_id < 0) {
