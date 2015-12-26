@@ -32,11 +32,8 @@
 #include <mach/oppo_boot_mode.h>
 #include <mach/oppo_project.h>
 #include <linux/regulator/consumer.h>
-
-#ifdef CONFIG_FB
-	#include <linux/fb.h>
-	#include <linux/notifier.h>
-#endif
+#include <linux/fb.h>
+#include <linux/notifier.h>
 #include "oppo_tp_devices.h"
 
 #include "14013/synaptics_s3203_truly_14013.h"
