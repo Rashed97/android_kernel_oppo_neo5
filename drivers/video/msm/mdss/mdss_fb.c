@@ -287,8 +287,6 @@ static struct attribute *mdss_fb_attrs[] = {
 	&dev_attr_msm_fb_type.attr,
 	&dev_attr_msm_fb_split.attr,
 	&dev_attr_show_blank_event.attr,
-/* caven.han Add for set cabc */
-	&dev_attr_cabc.attr,
 
 /* guoling Add for set lcdoff test */
     &dev_attr_lcdoff.attr,
