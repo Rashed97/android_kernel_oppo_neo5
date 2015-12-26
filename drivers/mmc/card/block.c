@@ -3122,14 +3122,6 @@ static int mmc_blk_probe(struct mmc_card *card)
 	char cap_str[10];
 	//Zhilong.Zhang@OnlineRd.Driver, 2013/10/24, Add for eMMC and DDR device information
 	char * manufacturerid;
-	/*struct manufacture_info ddr_info_1 = {
-		.version = "EDFA164A2PB",
-		.manufacture = "ELPIDA",
-	};
-	struct manufacture_info ddr_info_2 = {
-		.version = "K3QF7F70DM",
-		.manufacture = "SAMSUNG",
-	};*/
 
 	/*
 	 * Check that the card supports the command class(es) we need.
