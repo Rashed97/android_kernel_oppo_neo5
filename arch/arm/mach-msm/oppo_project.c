@@ -9,8 +9,6 @@
 #include <mach/oppo_reserve3.h>
 #include <linux/fs.h>
 
-
-
 /////////////////////////////////////////////////////////////
 
 static struct proc_dir_entry *oppoReserve3 = NULL;
@@ -19,11 +17,7 @@ static unsigned int lcd_gamaflag = 0;
 
 int __init  init_lcd_gamaflag(void)
 {
-    char *substr;
-	char buf[32] = {0};
-	int i = 0;
 	return 0;
-
 }
 
 unsigned int get_lcd_gamaflag(void)
@@ -238,8 +232,6 @@ static int prjVersion_read_proc(char *page, char **start, off_t off,
 		   len = sprintf(page,"%d",14016);
 		else
 		   len = sprintf(page,"%d",14013);
-	else
-	   len = sprintf(page,"%d",get_project());
 
 	if (len <= off+count)
 		*eof = 1;
