@@ -12,7 +12,6 @@
 #include <linux/of_device.h>
 #include <linux/of_gpio.h>
 #include <mach/gpio.h>
-#include <mach/oppo_boot_mode.h>
 #include <mach/device_info.h>
 #include <mach/oppo_project.h>
 
@@ -160,90 +159,6 @@ static bool set_intensity(struct backlight_device *bl, struct lm3630_chip_data *
 	return true;
 }
 
-
-/* update and get brightness */
-/*
-static int lm3630_bank_a_update_status(struct backlight_device *bl)
-{
-	int ret;
-	struct lm3630_chip_data *pchip = bl_get_data(bl);
-	enum lm3630_pwm_ctrl pwm_ctrl = pchip->pdata->pwm_ctrl;
-
-	// brightness 0 means disable
-	if (!bl->props.brightness) {
-
-		ret = lm3630_write_reg(pchip->client,REG_CTRL,0x80);
-		if (ret < 0)
-			goto out;
-		return bl->props.brightness;
-	}
-
-	// pwm control
-	if (pwm_ctrl == PWM_CTRL_BANK_A || pwm_ctrl == PWM_CTRL_BANK_ALL) {
-		if (!set_intensity(bl, pchip))
-			dev_err(pchip->dev, "No pwm control func. in plat-data\n");
-	} else {
-		u8 val;
-
-		// i2c control
-		ret = lm3630_read_reg(pchip->client,REG_CTRL,&val);
-		val = val&0x7F;
-		ret = lm3630_write_reg(pchip->client,REG_CTRL,val);
-		if (ret < 0)
-			goto out;
-		mdelay(1);
-		ret = lm3630_write_reg(pchip->client,REG_BRT_A,bl->props.brightness - 1);
-		if (ret < 0)
-			goto out;
-	}
-	return bl->props.brightness;
-out:
-	dev_err(pchip->dev, "i2c failed to access REG_CTRL\n");
-	return bl->props.brightness;
-}
-
-static int lm3630_bank_a_get_brightness(struct backlight_device *bl)
-{
-	u8 reg_val;
-	int brightness, ret;
-	struct lm3630_chip_data *pchip = bl_get_data(bl);
-	enum lm3630_pwm_ctrl pwm_ctrl = pchip->pdata->pwm_ctrl;
-
-	if (pwm_ctrl == PWM_CTRL_BANK_A || pwm_ctrl == PWM_CTRL_BANK_ALL) {
-		ret = lm3630_read_reg(pchip->client,REG_PWM_OUTHIGH,&reg_val);
-		if (ret < 0)
-			goto out;
-		brightness = reg_val & 0x01;
-		ret = lm3630_read_reg(pchip->client,REG_PWM_OUTLOW,&reg_val);
-		if (ret < 0)
-			goto out;
-		brightness = ((brightness << 8) | reg_val) + 1;
-	} else {
-		ret = lm3630_read_reg(pchip->client,REG_CTRL,&reg_val);
-		reg_val = reg_val&0x7F;
-		ret = lm3630_write_reg(pchip->client,REG_CTRL,reg_val);
-		if (ret < 0)
-			goto out;
-		mdelay(1);
-		ret = lm3630_read_reg(pchip->client,REG_BRT_A,&reg_val);
-		if (ret < 0)
-			goto out;
-		brightness = reg_val + 1;
-	}
-	bl->props.brightness = brightness;
-	return bl->props.brightness;
-out:
-	dev_err(pchip->dev, "i2c failed to access register\n");
-	return 0;
-}
-
-
-static const struct backlight_ops lm3630_bank_a_ops = {
-	.options = BL_CORE_SUSPENDRESUME,
-	//.update_status = lm3630_bank_a_update_status,
-	.get_brightness = lm3630_bank_a_get_brightness,
-};
-*/
 static int lm3630_bank_b_update_status(struct backlight_device *bl)
 {
 	int ret;
@@ -336,7 +251,6 @@ static int lm3630_backlight_register(struct lm3630_chip_data *pchip,
 		props.max_brightness = pdata->max_brt_led1;
 		pchip->bled1 =
 		    backlight_device_register(name, pchip->dev, pchip,
-			//		      &lm3630_bank_a_ops, &props);
 						  NULL, &props);
 		if (IS_ERR(pchip->bled1))
 			return PTR_ERR(pchip->bled1);
@@ -408,18 +322,15 @@ static int lm3630_dt(struct device *dev, struct lm3630_platform_data *pdata)
 	} else{
 		pdata->pwm_active=temp_val;
 	}
-	if(get_boot_mode() == MSM_BOOT_MODE__FACTORY) {
+
+	rc = of_property_read_u32(np, "ti,pwm-ctrl", &temp_val);
+	if (rc) {
+		dev_err(dev, "Unable to read pwm-ctrl\n");
 		pdata->pwm_ctrl=PWM_CTRL_DISABLE;
-	}else{
-		rc = of_property_read_u32(np, "ti,pwm-ctrl", &temp_val);
-		if (rc) {
-			dev_err(dev, "Unable to read pwm-ctrl\n");
-			pdata->pwm_ctrl=PWM_CTRL_DISABLE;
-			pwm_disabled = true;
-		}else{
-			pdata->pwm_ctrl=temp_val;
-			pwm_disabled = false;
-		}
+		pwm_disabled = true;
+	} else{
+		pdata->pwm_ctrl=temp_val;
+		pwm_disabled = false;
 	}
 
 	rc = of_property_read_u32(np, "ti,pwm-period", &temp_val);
@@ -498,12 +409,8 @@ static ssize_t ftmbacklight_store(struct device *dev,
     int level;
     if (!count)
 		return -EINVAL;
-/* OPPO 2014-05-30 yxq modify begin for all modes */
-	pr_err("%s boot_mode is %d\n", __func__, get_boot_mode());
 	level = simple_strtoul(buf, NULL, 10);
    	lm3630_control(level);
-/* OPPO 2014-05-30 yxq modify end */
-
     return count;
 }
     DEVICE_ATTR(ftmbacklight, 0644, NULL, ftmbacklight_store);
@@ -574,7 +481,6 @@ static int lm3630_probe(struct i2c_client *client,
 			"Regulator vcc_i2c enable failed rc=%d\n", ret);
 	}
 
-//HW enable
 	ret = gpio_request(pchip->pdata->enable_gpio, "lm3630_enable");
 	if (ret) {
 		pr_err("lm3528_enable gpio_request failed: %d\n", ret);
@@ -586,19 +492,8 @@ static int lm3630_probe(struct i2c_client *client,
 		goto err_gpio_req;
 	}
 
-	//pr_err("%s: gpio23 value = %d\n", __func__,gpio_get_value(23));
-
 	i2c_set_clientdata(client, pchip);
 	dev_set_drvdata(&client->dev,pchip);
-
-	//just test lcd backlight
-	/*
-	lm3630_write_reg(pchip->client,0x01, 0x18);
-	lm3630_write_reg(pchip->client,0x00, 0x05);
-	lm3630_write_reg(pchip->client,0x05, 0x14);
-	lm3630_write_reg(pchip->client,0x06, 0x14);
-	lm3630_write_reg(pchip->client,0x03, 0xc8);//set backlight to 200
-	lm3630_write_reg(pchip->client,0x04, 0xc8);*/
 
 	/* chip initialize */
 	msleep(500);
@@ -775,8 +670,6 @@ int set_backlight_pwm(int state)
 	struct lm3630_chip_data *pchip = lm3630_pchip;
 
 	if((state==1)&&(backlight_level <= CABC_DISABLE_LEVEL)){	
-	//	pr_err("LM3630 set pwm__________0x14 flag true\n");
-
 			return 0;
 	}else if(state == 1){
 		ret=lm3630_write_reg(pchip->client,0x01,0x19);
@@ -803,9 +696,7 @@ void lm3630_control(int bl_level)
 		pr_err("LM3630:pchip is NULL should nerver call this\n");
 		return;
 	}
-//	printk("%s:name = %s pid = %d\n",__func__,current->comm,current->pid);
-	//dump_stack();
-//	printk("%s: bl=%d\n", __func__,bl_level);
+
 	if(bl_level>255) {
 		bl_level = 255;
 	}else if(bl_level == 0) {
